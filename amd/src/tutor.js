@@ -1,0 +1,198 @@
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * AI Tutor: a Socratic hint button plus an optional RL "practise next" banner on STACK quiz pages.
+ *
+ * The AI key stays server-side; this module only calls the plugin's own endpoints.
+ *
+ * @module     local_aitutor/tutor
+ * @copyright  2026 Daniel Cregg
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+/**
+ * Read the question text from a question element.
+ *
+ * @param {HTMLElement} que The .que element.
+ * @return {string} The plain-text question.
+ */
+const questionText = (que) => {
+    const el = que.querySelector('.qtext') || que.querySelector('.formulation');
+    return el ? el.innerText.replace(/\s+/g, ' ').trim() : '';
+};
+
+/**
+ * Read the student's current answer(s) from a question element.
+ *
+ * @param {HTMLElement} que The .que element.
+ * @return {string} The joined answer text.
+ */
+const currentAnswer = (que) => {
+    const inputs = que.querySelectorAll('.formulation input[type="text"], .formulation textarea');
+    const parts = [];
+    inputs.forEach((input) => {
+        if (input.value && input.value.trim()) {
+            parts.push(input.value.trim());
+        }
+    });
+    return parts.join(', ');
+};
+
+/**
+ * Read any grader feedback shown for a question.
+ *
+ * @param {HTMLElement} que The .que element.
+ * @return {string} The feedback text.
+ */
+const graderFeedback = (que) => {
+    const el = que.querySelector('.stackprtfeedback')
+        || que.querySelector('.outcome .feedback')
+        || que.querySelector('.feedback');
+    return el ? el.innerText.replace(/\s+/g, ' ').trim() : '';
+};
+
+/**
+ * Attach a hint button and panel to one STACK question.
+ *
+ * @param {object} config The tutor configuration passed from PHP.
+ * @param {HTMLElement} que The .que.stack element.
+ * @return {void}
+ */
+const attach = (config, que) => {
+    if (que.querySelector('.aitutor-box')) {
+        return;
+    }
+    const strings = config.strings || {};
+    const state = {attempt: 0};
+
+    const box = document.createElement('div');
+    box.className = 'aitutor-box';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-secondary btn-sm aitutor-btn';
+    btn.textContent = '💡 ' + (config.label || 'Hint');
+
+    const panel = document.createElement('div');
+    panel.className = 'aitutor-hint';
+
+    box.appendChild(btn);
+    box.appendChild(panel);
+    const anchor = que.querySelector('.ablock') || que.querySelector('.formulation') || que;
+    anchor.appendChild(box);
+
+    btn.addEventListener('click', () => {
+        if (config.maxhints && state.attempt >= config.maxhints) {
+            panel.classList.add('aitutor-hint-show');
+            panel.textContent = strings.done || '';
+            return;
+        }
+        state.attempt += 1;
+        btn.disabled = true;
+        panel.classList.add('aitutor-hint-show');
+        panel.textContent = strings.thinking || '';
+        const body = new URLSearchParams({
+            sesskey: config.sesskey,
+            cmid: String(config.cmid || ''),
+            question: questionText(que),
+            answer: currentAnswer(que),
+            feedback: graderFeedback(que),
+            attempt: String(state.attempt)
+        });
+        fetch(config.ajaxurl, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: body.toString()
+        }).then((response) => response.json())
+            .then((data) => {
+                if (data.hint) {
+                    panel.textContent = '💡 ' + data.hint;
+                } else {
+                    panel.textContent = data.error || strings.unavailable || '';
+                }
+                return data;
+            })
+            .catch(() => {
+                panel.textContent = strings.unavailable || '';
+            })
+            .finally(() => {
+                btn.disabled = false;
+            });
+    });
+};
+
+/**
+ * Ask the RL teaching policy what to practise next and show it as a banner.
+ *
+ * @param {object} config The tutor configuration passed from PHP.
+ * @return {void}
+ */
+const showRecommendation = (config) => {
+    if (!config.recommendurl) {
+        return;
+    }
+    const strings = config.strings || {};
+    const body = new URLSearchParams({sesskey: config.sesskey, cmid: String(config.cmid || '')});
+    fetch(config.recommendurl, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: body.toString()
+    }).then((response) => response.json())
+        .then((data) => {
+            if (!data || !data.skill) {
+                return data;
+            }
+            const banner = document.createElement('div');
+            banner.className = 'aitutor-reco';
+            // Build with text nodes (never innerHTML) so a hostile response cannot inject markup.
+            const strong = document.createElement('strong');
+            strong.textContent = (config.reclabel || 'Practise next') + ':';
+            const tail = document.createElement('span');
+            tail.className = 'aitutor-reco-tail';
+            tail.textContent = ' — ' + (strings.rectail || '');
+            const mid = ' ' + (data.label || data.skill) + (data.difficulty ? ' (' + data.difficulty + ')' : '');
+            banner.appendChild(document.createTextNode('🧭 '));
+            banner.appendChild(strong);
+            banner.appendChild(document.createTextNode(mid));
+            banner.appendChild(tail);
+            const anchor = document.querySelector('.que');
+            if (anchor && anchor.parentNode) {
+                anchor.parentNode.insertBefore(banner, anchor);
+            }
+            return data;
+        })
+        .catch(() => {
+            return null; // Recommendation is optional; never disrupt the page.
+        });
+};
+
+/**
+ * Entry point: wire the tutor into the current quiz-attempt page.
+ *
+ * @param {object} config The tutor configuration passed from PHP.
+ * @return {void}
+ */
+export const init = (config) => {
+    if (!config || !config.ajaxurl) {
+        return;
+    }
+    if (!document.body || document.body.id.indexOf('page-mod-quiz-attempt') !== 0) {
+        return;
+    }
+    // Only attach to STACK questions — never send other question types' content to the AI.
+    document.querySelectorAll('.que.stack').forEach((que) => attach(config, que));
+    showRecommendation(config);
+};

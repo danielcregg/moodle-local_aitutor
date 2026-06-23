@@ -1,7 +1,29 @@
 <?php
-// Phase 3 endpoint: measure this student's per-skill mastery from their real quiz attempts, ask
-// the trained RL teaching policy what to practise next, and return it. Additive — it does not
-// touch the hint flow. The policy lives in an external service (decoupled, as ever).
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Recommendation endpoint. Measures the student's per-skill mastery from their real quiz attempts
+ * (a BKT forward filter), asks the external RL teaching policy what to practise next, and returns
+ * it. Additive — it does not touch the hint flow.
+ *
+ * @package    local_aitutor
+ * @copyright  2026 Daniel Cregg
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 define('AJAX_SCRIPT', true);
 require(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/questionlib.php');
@@ -20,10 +42,11 @@ if (!get_config('local_aitutor', 'enabled')) {
     die();
 }
 
-// Canonical phase3 skill order + the question-name -> skill map (same as the exporter).
-$skill_order = ['differentiate', 'integrate', 'expand', 'factor', 'simplify',
-                'solve_linear', 'solve_quadratic', 'numerical'];
-$name_to_skill = [
+// Canonical phase3 skill order + the question-name -> skill map (same as the exporter). These are
+// data keys matched against actual question names, so they are intentionally not localised.
+$skillorder = ['differentiate', 'integrate', 'expand', 'factor', 'simplify',
+               'solve_linear', 'solve_quadratic', 'numerical'];
+$nametoskill = [
     'Differentiate'            => 'differentiate',
     'Find an antiderivative'   => 'integrate',
     'Expand'                   => 'expand',
@@ -33,7 +56,7 @@ $name_to_skill = [
     'Solve a quadratic'        => 'solve_quadratic',
     'Evaluate to a decimal'    => 'numerical',
 ];
-$skill_label = [
+$skilllabel = [
     'differentiate' => 'Differentiation', 'integrate' => 'Integration', 'expand' => 'Expanding',
     'factor' => 'Factorising', 'simplify' => 'Simplifying', 'solve_linear' => 'Linear equations',
     'solve_quadratic' => 'Quadratics', 'numerical' => 'Numerical evaluation',
@@ -49,15 +72,18 @@ try {
     ];
 
     $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
-    $seq = array_fill_keys($skill_order, []);   // skill => [[attempt-start, slot, correct], ...]
+    $seq = array_fill_keys($skillorder, []);   // skill => [[attempt-start, slot, correct], ...]
     $attemptcount = 0;
     foreach ($DB->get_records('quiz_attempts', ['quiz' => $quiz->id, 'userid' => $USER->id]) as $attempt) {
         $quba = question_engine::load_questions_usage_by_activity($attempt->uniqueid);
         foreach ($quba->get_slots() as $slot) {
             $qa = $quba->get_question_attempt($slot);
             $skill = null;
-            foreach ($name_to_skill as $phrase => $s) {
-                if (stripos($qa->get_question()->name, $phrase) !== false) { $skill = $s; break; }
+            foreach ($nametoskill as $phrase => $s) {
+                if (stripos($qa->get_question()->name, $phrase) !== false) {
+                    $skill = $s;
+                    break;
+                }
             }
             if (!$skill || !$qa->get_state()->is_graded()) {
                 continue;
@@ -72,47 +98,76 @@ try {
     // update (bkt_posterior) on each observed answer, then a learning step (bkt_learn) — the
     // principled latent-mastery estimate, not just a hit-rate. No data -> the prior p_init.
     $mastery = [];
-    foreach ($skill_order as $s) {
+    foreach ($skillorder as $s) {
         list($pi, $pt, $ps, $pg) = $bkt[$s];
         $answers = $seq[$s];
-        if (!$answers) { $mastery[$s] = round($pi, 3); continue; }
-        usort($answers, function ($a, $b) { return ($a[0] <=> $b[0]) ?: ($a[1] <=> $b[1]); });
+        if (!$answers) {
+            $mastery[$s] = round($pi, 3);
+            continue;
+        }
+        usort($answers, function ($a, $b) {
+            return ($a[0] <=> $b[0]) ?: ($a[1] <=> $b[1]);
+        });
         $b = $pi;
         foreach ($answers as $a) {
-            if ($a[2]) { $num = $b * (1 - $ps); $den = $num + (1 - $b) * $pg; }
-            else       { $num = $b * $ps;       $den = $num + (1 - $b) * (1 - $pg); }
-            $b = $den > 0 ? $num / $den : $b;          // bkt_posterior — infer from the answer
-            $b = $b + (1 - $b) * $pt;                   // bkt_learn — they practised
+            if ($a[2]) {
+                $num = $b * (1 - $ps);
+                $den = $num + (1 - $b) * $pg;
+            } else {
+                $num = $b * $ps;
+                $den = $num + (1 - $b) * (1 - $pg);
+            }
+            $b = $den > 0 ? $num / $den : $b;          // bkt_posterior — infer from the answer.
+            $b = $b + (1 - $b) * $pt;                   // bkt_learn — they practised.
         }
         $mastery[$s] = round(min(0.999, max(0.0, $b)), 3);
     }
 
+    // Validate the admin-configured endpoint: http(s), host required, no embedded credentials.
     $url = rtrim((string) get_config('local_aitutor', 'recommendurl'), '/');
-    if ($url === '') { echo json_encode(['skill' => null]); die(); }
+    $parts = $url === '' ? false : parse_url($url);
+    if ($parts === false || empty($parts['scheme']) || empty($parts['host'])
+            || !in_array(strtolower($parts['scheme']), ['http', 'https'], true)
+            || isset($parts['user']) || isset($parts['pass'])) {
+        echo json_encode(['skill' => null]);
+        die();
+    }
 
-    // ignoresecurity: the recommend URL is an admin-configured, trusted endpoint (e.g. the
-    // internal generate service); force IPv4 (no IPv6 egress in the Moodle container).
+    // ignoresecurity: the recommend URL is admin-configured and trusted (e.g. the internal generate
+    // service). Force IPv4 (no IPv6 egress in the Moodle container), disable redirects, pin protocols.
     $curl = new \curl(['ignoresecurity' => true]);
     $headers = ['Content-Type: application/json'];
     $token = (string) get_config('local_aitutor', 'recommendtoken');
-    if ($token !== '') {                       // needed only if recommendurl is the public Caddy route
+    if ($token !== '') {                       // Needed only if recommendurl is the public route.
         $headers[] = 'Authorization: Bearer ' . $token;
     }
     $curl->setHeader($headers);
-    $resp = $curl->post($url . '/recommend', json_encode(['mastery' => $mastery]),
-        ['CURLOPT_TIMEOUT' => 15, 'CURLOPT_IPRESOLVE' => CURL_IPRESOLVE_V4]);
+    $resp = $curl->post($url . '/recommend', json_encode(['mastery' => $mastery]), [
+        'CURLOPT_TIMEOUT'         => 15,
+        'CURLOPT_IPRESOLVE'       => CURL_IPRESOLVE_V4,
+        'CURLOPT_FOLLOWLOCATION'  => 0,
+        'CURLOPT_PROTOCOLS'       => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+        'CURLOPT_REDIR_PROTOCOLS' => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+    ]);
     $rec = json_decode((string) $resp, true);
-    if (!is_array($rec)) { echo json_encode(['skill' => null]); die(); }
+    if (!is_array($rec)) {
+        echo json_encode(['skill' => null]);
+        die();
+    }
 
     // Don't trust the service across the Moodle boundary: only return a known skill/difficulty
     // (the banner is built from these, so this also closes any XSS via a hostile response).
     $skill = $rec['skill'] ?? null;
-    if ($skill !== null && !in_array($skill, $skill_order, true)) { $skill = null; }
+    if ($skill !== null && !in_array($skill, $skillorder, true)) {
+        $skill = null;
+    }
     $difficulty = $rec['difficulty'] ?? null;
-    if (!in_array($difficulty, ['easy', 'medium', 'hard'], true)) { $difficulty = null; }
+    if (!in_array($difficulty, ['easy', 'medium', 'hard'], true)) {
+        $difficulty = null;
+    }
     echo json_encode([
         'skill'      => $skill,
-        'label'      => $skill ? ($skill_label[$skill] ?? $skill) : null,
+        'label'      => $skill ? ($skilllabel[$skill] ?? $skill) : null,
         'difficulty' => $difficulty,
         'source'     => $rec['source'] ?? null,
         'attempted'  => $attemptcount,

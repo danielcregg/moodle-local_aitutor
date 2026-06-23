@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/aitutor/db" VERSION="2026062300" COMMENT="AI Tutor"
+<XMLDB PATH="local/aitutor/db" VERSION="2026062400" COMMENT="AI Tutor"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
   <TABLES>
-    <TABLE NAME="local_aitutor_hints" COMMENT="Logged AI tutor hints (Phase 3 interaction data)">
+    <TABLE NAME="local_aitutor_hints" COMMENT="Logged AI tutor hints (interaction data for teaching analytics)">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
@@ -20,8 +20,8 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="userid" UNIQUE="false" FIELDS="userid"/>
         <INDEX NAME="cmid" UNIQUE="false" FIELDS="cmid"/>
+        <INDEX NAME="useridcmid" UNIQUE="false" FIELDS="userid, cmid"/>
       </INDEXES>
     </TABLE>
   </TABLES>

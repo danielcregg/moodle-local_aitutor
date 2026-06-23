@@ -1,4 +1,27 @@
 <?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Privacy Subsystem implementation for local_aitutor.
+ *
+ * @package    local_aitutor
+ * @copyright  2026 Daniel Cregg
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace local_aitutor\privacy;
 
 use core_privacy\local\metadata\collection;
@@ -11,30 +34,48 @@ use core_privacy\local\request\writer;
 defined('MOODLE_INTERNAL') || die();
 
 /**
- * Privacy provider for the AI Tutor: it stores a hint log (local_aitutor_hints) keyed by
- * user + course module, and discloses the question text + the student's answer to the
- * configured external AI provider.
+ * Privacy provider: the plugin stores a per-user hint log (local_aitutor_hints) and discloses the
+ * question text, the student's answer and the grader feedback to the configured external AI provider.
  */
 class provider implements
     \core_privacy\local\metadata\provider,
     \core_privacy\local\request\plugin\provider,
     \core_privacy\local\request\core_userlist_provider {
 
+    /**
+     * Describe the personal data stored and disclosed by this plugin.
+     *
+     * @param collection $collection The metadata collection to add items to.
+     * @return collection The populated collection.
+     */
     public static function get_metadata(collection $collection): collection {
         $collection->add_database_table('local_aitutor_hints', [
             'userid'      => 'privacy:metadata:hints:userid',
+            'cmid'        => 'privacy:metadata:hints:cmid',
+            'attempt'     => 'privacy:metadata:hints:attempt',
+            'question'    => 'privacy:metadata:hints:question',
+            'answer'      => 'privacy:metadata:hints:answer',
+            'feedback'    => 'privacy:metadata:hints:feedback',
             'hint'        => 'privacy:metadata:hints:hint',
-            'timecreated' => 'privacy:metadata:hints',
+            'provider'    => 'privacy:metadata:hints:provider',
+            'timecreated' => 'privacy:metadata:hints:timecreated',
         ], 'privacy:metadata:hints');
 
         $collection->add_external_location_link('aiprovider', [
             'question' => 'privacy:metadata:provider:question',
             'answer'   => 'privacy:metadata:provider:answer',
+            'feedback' => 'privacy:metadata:provider:feedback',
         ], 'privacy:metadata:provider');
 
         return $collection;
     }
 
+    /**
+     * Get the list of contexts that contain user information for the specified user.
+     *
+     * @param int $userid The user to search.
+     * @return contextlist The contexts in which the user has hint data.
+     */
     public static function get_contexts_for_userid(int $userid): contextlist {
         $contextlist = new contextlist();
         $sql = "SELECT ctx.id
@@ -45,7 +86,13 @@ class provider implements
         return $contextlist;
     }
 
-    public static function get_users_in_context(userlist $userlist) {
+    /**
+     * Get the list of users who have data within a context.
+     *
+     * @param userlist $userlist The userlist to add users to.
+     * @return void
+     */
+    public static function get_users_in_context(userlist $userlist): void {
         $context = $userlist->get_context();
         if ($context instanceof \context_module) {
             $userlist->add_from_sql('userid',
@@ -54,7 +101,13 @@ class provider implements
         }
     }
 
-    public static function export_user_data(approved_contextlist $contextlist) {
+    /**
+     * Export all hint data for the approved contexts of a user.
+     *
+     * @param approved_contextlist $contextlist The approved contexts to export for.
+     * @return void
+     */
+    public static function export_user_data(approved_contextlist $contextlist): void {
         global $DB;
         $userid = $contextlist->get_user()->id;
         foreach ($contextlist->get_contexts() as $context) {
@@ -71,14 +124,26 @@ class provider implements
         }
     }
 
-    public static function delete_data_for_all_users_in_context(\context $context) {
+    /**
+     * Delete all hint data for all users in a context.
+     *
+     * @param \context $context The context to delete in.
+     * @return void
+     */
+    public static function delete_data_for_all_users_in_context(\context $context): void {
         global $DB;
         if ($context instanceof \context_module) {
             $DB->delete_records('local_aitutor_hints', ['cmid' => $context->instanceid]);
         }
     }
 
-    public static function delete_data_for_user(approved_contextlist $contextlist) {
+    /**
+     * Delete hint data for a user across the approved contexts.
+     *
+     * @param approved_contextlist $contextlist The approved contexts to delete in.
+     * @return void
+     */
+    public static function delete_data_for_user(approved_contextlist $contextlist): void {
         global $DB;
         $userid = $contextlist->get_user()->id;
         foreach ($contextlist->get_contexts() as $context) {
@@ -89,7 +154,13 @@ class provider implements
         }
     }
 
-    public static function delete_data_for_users(approved_userlist $userlist) {
+    /**
+     * Delete hint data for several users within a single context.
+     *
+     * @param approved_userlist $userlist The approved users to delete for.
+     * @return void
+     */
+    public static function delete_data_for_users(approved_userlist $userlist): void {
         global $DB;
         $context = $userlist->get_context();
         if (!$context instanceof \context_module) {

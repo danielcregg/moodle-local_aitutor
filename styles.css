@@ -1,0 +1,33 @@
+/* Styles for local_aitutor. */
+
+.aitutor-box {
+    margin-top: 10px;
+}
+
+.aitutor-hint {
+    display: none;
+    margin-top: 8px;
+    padding: 10px 12px;
+    border: 1px solid #ffe2a8;
+    background: #fff7e6;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.aitutor-hint-show {
+    display: block;
+}
+
+.aitutor-reco {
+    margin: 10px 0;
+    padding: 10px 14px;
+    border: 1px solid #cfe2ff;
+    background: #eef5ff;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.aitutor-reco-tail {
+    color: #666677;
+}

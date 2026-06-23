@@ -1,13 +1,42 @@
 <?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Hook callbacks for local_aitutor.
+ *
+ * @package    local_aitutor
+ * @copyright  2026 Daniel Cregg
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace local_aitutor;
 
 defined('MOODLE_INTERNAL') || die();
 
 /**
- * Injects the tutor JS into quiz-attempt pages via the footer hook.
+ * Injects the tutor AMD module into quiz-attempt pages via the footer hook.
  */
 class hook_callbacks {
 
+    /**
+     * Load the tutor JavaScript on STACK quiz-attempt pages.
+     *
+     * @param \core\hook\output\before_standard_footer_html_generation $hook The footer hook.
+     * @return void
+     */
     public static function inject_tutor(\core\hook\output\before_standard_footer_html_generation $hook): void {
         global $PAGE;
 
@@ -25,16 +54,19 @@ class hook_callbacks {
             'cmid'     => isset($PAGE->cm->id) ? (int) $PAGE->cm->id : 0,
             'maxhints' => (int) (get_config('local_aitutor', 'maxhints') ?: 3),
             'label'    => get_string('hintbutton', 'local_aitutor'),
-            // Phase 3: if a recommend service is configured, the tutor also shows "what to
-            // practise next" from the RL policy (empty string disables it client-side).
+            'reclabel' => get_string('recommendnext', 'local_aitutor'),
+            // If a recommend service is configured, the tutor also shows "what to practise next"
+            // from the RL policy (empty string disables it client-side).
             'recommendurl' => get_config('local_aitutor', 'recommendurl')
                 ? (new \moodle_url('/local/aitutor/recommend.php'))->out(false) : '',
-            'reclabel' => get_string('recommendnext', 'local_aitutor'),
+            'strings' => [
+                'thinking'    => get_string('hintthinking', 'local_aitutor'),
+                'done'        => get_string('hintsdone', 'local_aitutor'),
+                'unavailable' => get_string('tutorunavailable', 'local_aitutor'),
+                'rectail'     => get_string('recommendtail', 'local_aitutor'),
+            ],
         ];
-        $jsurl = (new \moodle_url('/local/aitutor/tutor.js', ['v' => get_config('local_aitutor', 'version')]))->out(false);
 
-        $html  = '<script>window.AITUTOR=' . json_encode($config, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) . ';</script>';
-        $html .= '<script defer src="' . $jsurl . '"></script>';
-        $hook->add_html($html);
+        $PAGE->requires->js_call_amd('local_aitutor/tutor', 'init', [$config]);
     }
 }

@@ -1,7 +1,29 @@
 <?php
-// Hint endpoint. The browser posts the cmid + question + the student's current answer; we
-// verify the user may attempt that quiz, call the AI server-side (key never leaves the
-// server), log the hint, and return it as JSON. The AI key is never sent to the browser.
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Hint endpoint. The browser posts the cmid + question + the student's current answer; we verify
+ * the user may attempt that quiz, call the AI server-side (the key never leaves the server), log
+ * the hint, and return it as JSON.
+ *
+ * @package    local_aitutor
+ * @copyright  2026 Daniel Cregg
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 define('AJAX_SCRIPT', true);
 require(__DIR__ . '/../../config.php');
 
@@ -21,23 +43,24 @@ require_capability('mod/quiz:attempt', $context);
 global $DB, $USER;
 header('Content-Type: application/json; charset=utf-8');
 
-try {
-    if (!get_config('local_aitutor', 'enabled')) {
-        throw new \moodle_exception('AI tutor disabled');
-    }
+if (!get_config('local_aitutor', 'enabled')) {
+    echo json_encode(['error' => get_string('tutortemporary', 'local_aitutor')]);
+    die();
+}
 
+try {
     // Server-side abuse/cost cap: a hard ceiling on hints per user per quiz module.
-    // (The per-question escalation cap in tutor.js is just UX.)
+    // (The per-question escalation cap in the JS is just UX.)
     $maxhints = (int) (get_config('local_aitutor', 'maxhints') ?: 3);
     $ceiling  = max(10, $maxhints * 20);
     if ($DB->count_records('local_aitutor_hints', ['userid' => $USER->id, 'cmid' => $cmid]) >= $ceiling) {
-        echo json_encode(['hint' => 'You have reached the hint limit for this quiz. Keep going — you can do it!']);
+        echo json_encode(['hint' => get_string('hintlimitreached', 'local_aitutor')]);
         die();
     }
 
     $hint = \local_aitutor\ai_client::hint($question, $answer, $feedback, $attempt);
 
-    // Log the interaction - the Phase 3 (RL teaching agent) data substrate.
+    // Log the interaction — the data substrate for teaching analytics.
     $DB->insert_record('local_aitutor_hints', (object) [
         'userid' => $USER->id, 'cmid' => $cmid, 'attempt' => $attempt,
         'question' => $question, 'answer' => $answer, 'feedback' => $feedback,
@@ -49,5 +72,5 @@ try {
 } catch (\Throwable $e) {
     // Log the detail server-side; return a generic message (no upstream/provider leak).
     debugging('local_aitutor hint failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
-    echo json_encode(['error' => 'The tutor is temporarily unavailable. Please try again in a moment.']);
+    echo json_encode(['error' => get_string('tutortemporary', 'local_aitutor')]);
 }
