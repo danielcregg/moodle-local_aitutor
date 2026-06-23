@@ -34,7 +34,6 @@ use core_privacy\local\request\writer;
  * @covers \local_aitutor\privacy\provider
  */
 final class provider_test extends \core_privacy\tests\provider_testcase {
-
     /**
      * The provider must declare both the stored table and the external disclosure.
      *

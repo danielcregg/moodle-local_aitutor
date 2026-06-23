@@ -30,7 +30,6 @@ namespace local_aitutor;
  * @covers \local_aitutor\ai_client
  */
 final class ai_client_test extends \advanced_testcase {
-
     /**
      * With no provider configured, hint() must throw before any network call.
      *
