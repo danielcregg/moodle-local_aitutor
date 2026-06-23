@@ -1,0 +1,19 @@
+<?php
+$string['pluginname'] = 'AI Tutor';
+$string['enabled'] = 'Enable the AI tutor';
+$string['enabled_desc'] = 'Inject the Socratic AI tutor into quiz attempt pages.';
+$string['provider'] = 'AI provider';
+$string['provider_desc'] = 'Which external AI service generates the hints.';
+$string['model'] = 'Model';
+$string['model_desc'] = 'Model id for the chosen provider, e.g. z-ai/glm-5.2-free, gemini-2.5-flash, gpt-4o-mini.';
+$string['apikey'] = 'AI API key';
+$string['apikey_desc'] = 'Stored server-side and never sent to the browser; the plugin calls the provider from the server.';
+$string['maxhints'] = 'Max hints per question';
+$string['maxhints_desc'] = 'How many escalating hints a student may request per question (cap).';
+$string['hintbutton'] = 'Hint';
+$string['privacy:metadata:provider'] = 'The configured external AI provider.';
+$string['privacy:metadata:provider:question'] = 'The question text the student is working on.';
+$string['privacy:metadata:provider:answer'] = 'The answer the student has currently typed.';
+$string['privacy:metadata:hints'] = 'A log of hints shown to the student (for improving teaching).';
+$string['privacy:metadata:hints:userid'] = 'The user who received the hint.';
+$string['privacy:metadata:hints:hint'] = 'The hint text shown.';
