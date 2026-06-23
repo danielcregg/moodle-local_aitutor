@@ -40,10 +40,17 @@ $skill_label = [
 ];
 
 try {
-    $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
-    $correct = array_fill_keys($skill_order, 0);
-    $total = array_fill_keys($skill_order, 0);
+    // Default BKT params per skill [p_init, p_transit, p_slip, p_guess] (= phase3 DEFAULT_SKILLS).
+    $bkt = [
+        'differentiate'   => [0.20, 0.18, 0.10, 0.15], 'integrate'    => [0.10, 0.10, 0.12, 0.12],
+        'expand'          => [0.30, 0.25, 0.08, 0.20], 'factor'       => [0.18, 0.15, 0.12, 0.15],
+        'simplify'        => [0.22, 0.20, 0.10, 0.18], 'solve_linear' => [0.35, 0.28, 0.07, 0.22],
+        'solve_quadratic' => [0.12, 0.12, 0.13, 0.13], 'numerical'    => [0.25, 0.20, 0.10, 0.20],
+    ];
 
+    $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
+    $seq = array_fill_keys($skill_order, []);   // skill => [[attempt-start, slot, correct], ...]
+    $attemptcount = 0;
     foreach ($DB->get_records('quiz_attempts', ['quiz' => $quiz->id, 'userid' => $USER->id]) as $attempt) {
         $quba = question_engine::load_questions_usage_by_activity($attempt->uniqueid);
         foreach ($quba->get_slots() as $slot) {
@@ -55,18 +62,29 @@ try {
             if (!$skill || !$qa->get_state()->is_graded()) {
                 continue;
             }
-            $total[$skill]++;
-            if ($qa->get_fraction() !== null && $qa->get_fraction() >= 0.999) {
-                $correct[$skill]++;
-            }
+            $ok = ($qa->get_fraction() !== null && $qa->get_fraction() >= 0.999) ? 1 : 0;
+            $seq[$skill][] = [(int) $attempt->timestart, (int) $slot, $ok];
+            $attemptcount++;
         }
     }
 
-    // Mastery estimate: fraction correct; skills with no data default low so the policy steers
-    // the student toward starting them.
+    // Infer per-skill mastery by a BKT forward filter over the student's answer stream: a Bayes
+    // update (bkt_posterior) on each observed answer, then a learning step (bkt_learn) — the
+    // principled latent-mastery estimate, not just a hit-rate. No data -> the prior p_init.
     $mastery = [];
     foreach ($skill_order as $s) {
-        $mastery[$s] = $total[$s] > 0 ? round($correct[$s] / $total[$s], 3) : 0.15;
+        list($pi, $pt, $ps, $pg) = $bkt[$s];
+        $answers = $seq[$s];
+        if (!$answers) { $mastery[$s] = round($pi, 3); continue; }
+        usort($answers, function ($a, $b) { return ($a[0] <=> $b[0]) ?: ($a[1] <=> $b[1]); });
+        $b = $pi;
+        foreach ($answers as $a) {
+            if ($a[2]) { $num = $b * (1 - $ps); $den = $num + (1 - $b) * $pg; }
+            else       { $num = $b * $ps;       $den = $num + (1 - $b) * (1 - $pg); }
+            $b = $den > 0 ? $num / $den : $b;          // bkt_posterior — infer from the answer
+            $b = $b + (1 - $b) * $pt;                   // bkt_learn — they practised
+        }
+        $mastery[$s] = round(min(0.999, max(0.0, $b)), 3);
     }
 
     $url = rtrim((string) get_config('local_aitutor', 'recommendurl'), '/');
@@ -97,7 +115,7 @@ try {
         'label'      => $skill ? ($skill_label[$skill] ?? $skill) : null,
         'difficulty' => $difficulty,
         'source'     => $rec['source'] ?? null,
-        'attempted'  => array_sum($total),
+        'attempted'  => $attemptcount,
     ]);
 } catch (\Throwable $e) {
     debugging('local_aitutor recommend failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
