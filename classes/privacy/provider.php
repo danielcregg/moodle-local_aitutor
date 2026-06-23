@@ -31,17 +31,14 @@ use core_privacy\local\request\contextlist;
 use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Privacy provider: the plugin stores a per-user hint log (local_aitutor_hints) and discloses the
  * question text, the student's answer and the grader feedback to the configured external AI provider.
  */
 class provider implements
     \core_privacy\local\metadata\provider,
-    \core_privacy\local\request\plugin\provider,
-    \core_privacy\local\request\core_userlist_provider {
-
+    \core_privacy\local\request\core_userlist_provider,
+    \core_privacy\local\request\plugin\provider {
     /**
      * Describe the personal data stored and disclosed by this plugin.
      *
@@ -95,9 +92,11 @@ class provider implements
     public static function get_users_in_context(userlist $userlist): void {
         $context = $userlist->get_context();
         if ($context instanceof \context_module) {
-            $userlist->add_from_sql('userid',
+            $userlist->add_from_sql(
+                'userid',
                 "SELECT userid FROM {local_aitutor_hints} WHERE cmid = :cmid",
-                ['cmid' => $context->instanceid]);
+                ['cmid' => $context->instanceid]
+            );
         }
     }
 
@@ -114,12 +113,12 @@ class provider implements
             if (!$context instanceof \context_module) {
                 continue;
             }
-            $records = $DB->get_records('local_aitutor_hints',
-                ['cmid' => $context->instanceid, 'userid' => $userid]);
+            $records = $DB->get_records('local_aitutor_hints', ['cmid' => $context->instanceid, 'userid' => $userid]);
             if ($records) {
                 writer::with_context($context)->export_data(
                     [get_string('pluginname', 'local_aitutor')],
-                    (object) ['hints' => array_values($records)]);
+                    (object) ['hints' => array_values($records)]
+                );
             }
         }
     }
@@ -148,8 +147,7 @@ class provider implements
         $userid = $contextlist->get_user()->id;
         foreach ($contextlist->get_contexts() as $context) {
             if ($context instanceof \context_module) {
-                $DB->delete_records('local_aitutor_hints',
-                    ['cmid' => $context->instanceid, 'userid' => $userid]);
+                $DB->delete_records('local_aitutor_hints', ['cmid' => $context->instanceid, 'userid' => $userid]);
             }
         }
     }
@@ -166,7 +164,7 @@ class provider implements
         if (!$context instanceof \context_module) {
             return;
         }
-        list($insql, $params) = $DB->get_in_or_equal($userlist->get_userids(), SQL_PARAMS_NAMED);
+        [$insql, $params] = $DB->get_in_or_equal($userlist->get_userids(), SQL_PARAMS_NAMED);
         $params['cmid'] = $context->instanceid;
         $DB->delete_records_select('local_aitutor_hints', "cmid = :cmid AND userid $insql", $params);
     }

@@ -29,7 +29,7 @@ require(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/questionlib.php');
 
 $cmid = required_param('cmid', PARAM_INT);
-list($course, $cm) = get_course_and_cm_from_cmid($cmid, 'quiz');
+[$course, $cm] = get_course_and_cm_from_cmid($cmid, 'quiz');
 require_login($course, false, $cm);
 require_sesskey();
 require_capability('mod/quiz:attempt', context_module::instance($cm->id));
@@ -72,7 +72,7 @@ try {
     ];
 
     $quiz = $DB->get_record('quiz', ['id' => $cm->instance], '*', MUST_EXIST);
-    $seq = array_fill_keys($skillorder, []);   // skill => [[attempt-start, slot, correct], ...]
+    $seq = array_fill_keys($skillorder, []); // For each skill, the student's graded answers in submission order.
     $attemptcount = 0;
     foreach ($DB->get_records('quiz_attempts', ['quiz' => $quiz->id, 'userid' => $USER->id]) as $attempt) {
         $quba = question_engine::load_questions_usage_by_activity($attempt->uniqueid);
@@ -99,7 +99,7 @@ try {
     // principled latent-mastery estimate, not just a hit-rate. No data -> the prior p_init.
     $mastery = [];
     foreach ($skillorder as $s) {
-        list($pi, $pt, $ps, $pg) = $bkt[$s];
+        [$pi, $pt, $ps, $pg] = $bkt[$s];
         $answers = $seq[$s];
         if (!$answers) {
             $mastery[$s] = round($pi, 3);
@@ -117,8 +117,8 @@ try {
                 $num = $b * $ps;
                 $den = $num + (1 - $b) * (1 - $pg);
             }
-            $b = $den > 0 ? $num / $den : $b;          // bkt_posterior — infer from the answer.
-            $b = $b + (1 - $b) * $pt;                   // bkt_learn — they practised.
+            $b = $den > 0 ? $num / $den : $b; // Bayes update: infer mastery from the answer.
+            $b = $b + (1 - $b) * $pt; // Learning step: the student practised.
         }
         $mastery[$s] = round(min(0.999, max(0.0, $b)), 3);
     }
@@ -126,15 +126,17 @@ try {
     // Validate the admin-configured endpoint: http(s), host required, no embedded credentials.
     $url = rtrim((string) get_config('local_aitutor', 'recommendurl'), '/');
     $parts = $url === '' ? false : parse_url($url);
-    if ($parts === false || empty($parts['scheme']) || empty($parts['host'])
-            || !in_array(strtolower($parts['scheme']), ['http', 'https'], true)
-            || isset($parts['user']) || isset($parts['pass'])) {
+    if (
+        $parts === false || empty($parts['scheme']) || empty($parts['host'])
+        || !in_array(strtolower($parts['scheme']), ['http', 'https'], true)
+        || isset($parts['user']) || isset($parts['pass'])
+    ) {
         echo json_encode(['skill' => null]);
         die();
     }
 
-    // ignoresecurity: the recommend URL is admin-configured and trusted (e.g. the internal generate
-    // service). Force IPv4 (no IPv6 egress in the Moodle container), disable redirects, pin protocols.
+    // The ignoresecurity option is used because the recommend URL is admin-configured and trusted
+    // (often the internal generate service). Force IPv4 (no IPv6 egress), disable redirects, pin protocols.
     $curl = new \curl(['ignoresecurity' => true]);
     $headers = ['Content-Type: application/json'];
     $token = (string) get_config('local_aitutor', 'recommendtoken');

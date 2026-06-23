@@ -34,5 +34,5 @@ $plugin->supported    = [405, 405];             // Developed and tested on Moodl
 $plugin->maturity     = MATURITY_BETA;
 $plugin->release      = '1.0.0-beta';
 $plugin->dependencies = [
-    'qtype_stack' => ANY_VERSION,               // Tutors STACK questions specifically.
+    'qtype_stack' => ANY_VERSION, // Tutors STACK questions specifically.
 ];

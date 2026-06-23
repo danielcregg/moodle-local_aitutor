@@ -24,24 +24,21 @@
 
 namespace local_aitutor;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Holds the provider configuration (including the API key) and calls the configured external AI to
  * produce ONE escalating Socratic hint. The key never reaches the browser.
  */
 class ai_client {
-
     /** @var array OpenAI-compatible / gemini / anthropic endpoints, keyed by provider id. */
     const PROVIDERS = [
-        'openai'   => ['kind' => 'openai',    'endpoint' => 'https://api.openai.com/v1/chat/completions'],
-        'groq'     => ['kind' => 'openai',    'endpoint' => 'https://api.groq.com/openai/v1/chat/completions'],
-        'deepseek' => ['kind' => 'openai',    'endpoint' => 'https://api.deepseek.com/chat/completions'],
-        'mistral'  => ['kind' => 'openai',    'endpoint' => 'https://api.mistral.ai/v1/chat/completions'],
-        'cerebras' => ['kind' => 'openai',    'endpoint' => 'https://api.cerebras.ai/v1/chat/completions'],
-        'zenmux'   => ['kind' => 'openai',    'endpoint' => 'https://zenmux.ai/api/v1/chat/completions'],
+        'openai'   => ['kind' => 'openai', 'endpoint' => 'https://api.openai.com/v1/chat/completions'],
+        'groq'     => ['kind' => 'openai', 'endpoint' => 'https://api.groq.com/openai/v1/chat/completions'],
+        'deepseek' => ['kind' => 'openai', 'endpoint' => 'https://api.deepseek.com/chat/completions'],
+        'mistral'  => ['kind' => 'openai', 'endpoint' => 'https://api.mistral.ai/v1/chat/completions'],
+        'cerebras' => ['kind' => 'openai', 'endpoint' => 'https://api.cerebras.ai/v1/chat/completions'],
+        'zenmux'   => ['kind' => 'openai', 'endpoint' => 'https://zenmux.ai/api/v1/chat/completions'],
         'claude'   => ['kind' => 'anthropic', 'endpoint' => 'https://api.anthropic.com/v1/messages'],
-        'gemini'   => ['kind' => 'gemini',    'endpoint' => 'https://generativelanguage.googleapis.com/v1beta/models/'],
+        'gemini'   => ['kind' => 'gemini', 'endpoint' => 'https://generativelanguage.googleapis.com/v1beta/models/'],
     ];
 
     /** @var string The Socratic system prompt (mirrors the decoupled web tutor). */
@@ -146,8 +143,7 @@ class ai_client {
      * @param string $user The user prompt.
      * @return string The hint text.
      */
-    private static function call_openai(string $endpoint, string $key, string $model,
-                                        string $system, string $user): string {
+    private static function call_openai(string $endpoint, string $key, string $model, string $system, string $user): string {
         $j = self::http($endpoint, ['Content-Type: application/json', 'Authorization: Bearer ' . $key], [
             'model' => $model, 'temperature' => 0.7,
             'messages' => [['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $user]],
@@ -165,8 +161,7 @@ class ai_client {
      * @param string $user The user prompt.
      * @return string The hint text.
      */
-    private static function call_gemini(string $endpoint, string $key, string $model,
-                                        string $system, string $user): string {
+    private static function call_gemini(string $endpoint, string $key, string $model, string $system, string $user): string {
         $url = $endpoint . rawurlencode($model) . ':generateContent?key=' . rawurlencode($key);
         $j = self::http($url, ['Content-Type: application/json'], [
             'systemInstruction' => ['parts' => [['text' => $system]]],
@@ -191,13 +186,17 @@ class ai_client {
      * @param string $user The user prompt.
      * @return string The hint text.
      */
-    private static function call_anthropic(string $endpoint, string $key, string $model,
-                                           string $system, string $user): string {
-        $j = self::http($endpoint,
-            ['Content-Type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2023-06-01'], [
-                'model' => $model, 'max_tokens' => 1024, 'system' => $system,
+    private static function call_anthropic(string $endpoint, string $key, string $model, string $system, string $user): string {
+        $j = self::http(
+            $endpoint,
+            ['Content-Type: application/json', 'x-api-key: ' . $key, 'anthropic-version: 2023-06-01'],
+            [
+                'model' => $model,
+                'max_tokens' => 1024,
+                'system' => $system,
                 'messages' => [['role' => 'user', 'content' => $user]],
-            ]);
+            ]
+        );
         $blocks = $j['content'] ?? [];
         $text = '';
         foreach ($blocks as $b) {

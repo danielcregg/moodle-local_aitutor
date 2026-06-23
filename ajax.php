@@ -34,7 +34,7 @@ $feedback = core_text::substr(optional_param('feedback', '', PARAM_RAW), 0, 1000
 $attempt  = max(1, optional_param('attempt', 1, PARAM_INT));
 
 // Access control: real module context + the user must be allowed to attempt this quiz.
-list($course, $cm) = get_course_and_cm_from_cmid($cmid, 'quiz');
+[$course, $cm] = get_course_and_cm_from_cmid($cmid, 'quiz');
 require_login($course, false, $cm);
 require_sesskey();
 $context = context_module::instance($cm->id);

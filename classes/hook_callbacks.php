@@ -24,13 +24,10 @@
 
 namespace local_aitutor;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Injects the tutor AMD module into quiz-attempt pages via the footer hook.
  */
 class hook_callbacks {
-
     /**
      * Load the tutor JavaScript on STACK quiz-attempt pages.
      *
