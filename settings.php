@@ -50,4 +50,13 @@ if ($hassiteconfig) {
         '3',
         PARAM_INT
     ));
+
+    // Phase 3: the RL teaching policy. If set, the tutor also shows "what to practise next"
+    // (skill x difficulty) from the learned policy, based on the student's measured mastery.
+    $settings->add(new admin_setting_configtext(
+        'local_aitutor/recommendurl',
+        get_string('recommendurl', 'local_aitutor'),
+        get_string('recommendurl_desc', 'local_aitutor'),
+        'http://generate:8092'
+    ));
 }

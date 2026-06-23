@@ -76,9 +76,35 @@
     });
   }
 
+  // Phase 3: ask the RL teaching policy what to practise next (based on the student's measured
+  // mastery) and show it as a small banner. Optional + isolated — never affects the hint flow.
+  function showRecommendation() {
+    if (!CFG.recommendurl) { return; }
+    var body = new URLSearchParams({ sesskey: CFG.sesskey, cmid: String(CFG.cmid || '') });
+    fetch(CFG.recommendurl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
+    }).then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.skill) { return; }
+        var banner = document.createElement('div');
+        banner.className = 'aitutor-reco';
+        banner.style.cssText = 'margin:10px 0;padding:10px 14px;border:1px solid #cfe2ff;background:#eef5ff;border-radius:8px;font-size:14px';
+        var diff = j.difficulty ? (' <em>(' + j.difficulty + ')</em>') : '';
+        banner.innerHTML = '🧭 <strong>' + (CFG.reclabel || 'Practise next') + ':</strong> ' +
+          (j.label || j.skill) + diff +
+          ' <span style="color:#667">— suggested by the RL teaching policy</span>';
+        var anchor = document.querySelector('.que');
+        if (anchor && anchor.parentNode) { anchor.parentNode.insertBefore(banner, anchor); }
+      })
+      .catch(function () { /* recommendation is optional; never disrupt the page */ });
+  }
+
   function init() {
     // Only attach to STACK questions - never send other question types' content to the AI.
     document.querySelectorAll('.que.stack').forEach(attach);
+    try { showRecommendation(); } catch (e) { /* optional feature */ }
   }
 
   if (document.readyState === 'loading') {

@@ -5,7 +5,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_aitutor';
-$plugin->version   = 2026062301;
+$plugin->version   = 2026062302;   // + Phase 3 RL "practise next" recommendation
 $plugin->requires  = 2024042200;   // Moodle 4.4+ (Hooks API)
 $plugin->maturity  = MATURITY_ALPHA;
 $plugin->release   = '0.1.0';
