@@ -91,10 +91,17 @@
         var banner = document.createElement('div');
         banner.className = 'aitutor-reco';
         banner.style.cssText = 'margin:10px 0;padding:10px 14px;border:1px solid #cfe2ff;background:#eef5ff;border-radius:8px;font-size:14px';
-        var diff = j.difficulty ? (' <em>(' + j.difficulty + ')</em>') : '';
-        banner.innerHTML = '🧭 <strong>' + (CFG.reclabel || 'Practise next') + ':</strong> ' +
-          (j.label || j.skill) + diff +
-          ' <span style="color:#667">— suggested by the RL teaching policy</span>';
+        // Build with text nodes (never innerHTML) so a hostile response can't inject markup.
+        var strong = document.createElement('strong');
+        strong.textContent = (CFG.reclabel || 'Practise next') + ':';
+        var tail = document.createElement('span');
+        tail.style.color = '#667';
+        tail.textContent = ' — suggested by the RL teaching policy';
+        var mid = ' ' + (j.label || j.skill) + (j.difficulty ? ' (' + j.difficulty + ')' : '');
+        banner.appendChild(document.createTextNode('🧭 '));
+        banner.appendChild(strong);
+        banner.appendChild(document.createTextNode(mid));
+        banner.appendChild(tail);
         var anchor = document.querySelector('.que');
         if (anchor && anchor.parentNode) { anchor.parentNode.insertBefore(banner, anchor); }
       })

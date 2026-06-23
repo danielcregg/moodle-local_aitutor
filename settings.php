@@ -53,10 +53,21 @@ if ($hassiteconfig) {
 
     // Phase 3: the RL teaching policy. If set, the tutor also shows "what to practise next"
     // (skill x difficulty) from the learned policy, based on the student's measured mastery.
+    // Not PARAM_URL: the recommended value is an internal hostname (http://generate:8092) which
+    // PARAM_URL would reject. It is an admin-only, trusted endpoint (never user-influenced).
     $settings->add(new admin_setting_configtext(
         'local_aitutor/recommendurl',
         get_string('recommendurl', 'local_aitutor'),
         get_string('recommendurl_desc', 'local_aitutor'),
         'http://generate:8092'
+    ));
+
+    // Only needed if recommendurl is the PUBLIC Caddy route (which requires the bearer token);
+    // leave blank for the internal service.
+    $settings->add(new admin_setting_configpasswordunmask(
+        'local_aitutor/recommendtoken',
+        get_string('recommendtoken', 'local_aitutor'),
+        get_string('recommendtoken_desc', 'local_aitutor'),
+        ''
     ));
 }

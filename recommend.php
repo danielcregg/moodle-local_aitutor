@@ -15,6 +15,11 @@ require_capability('mod/quiz:attempt', context_module::instance($cm->id));
 global $DB, $USER;
 header('Content-Type: application/json; charset=utf-8');
 
+if (!get_config('local_aitutor', 'enabled')) {
+    echo json_encode(['skill' => null]);
+    die();
+}
+
 // Canonical phase3 skill order + the question-name -> skill map (same as the exporter).
 $skill_order = ['differentiate', 'integrate', 'expand', 'factor', 'simplify',
                 'solve_linear', 'solve_quadratic', 'numerical'];
@@ -70,17 +75,27 @@ try {
     // ignoresecurity: the recommend URL is an admin-configured, trusted endpoint (e.g. the
     // internal generate service); force IPv4 (no IPv6 egress in the Moodle container).
     $curl = new \curl(['ignoresecurity' => true]);
-    $curl->setHeader(['Content-Type: application/json']);
+    $headers = ['Content-Type: application/json'];
+    $token = (string) get_config('local_aitutor', 'recommendtoken');
+    if ($token !== '') {                       // needed only if recommendurl is the public Caddy route
+        $headers[] = 'Authorization: Bearer ' . $token;
+    }
+    $curl->setHeader($headers);
     $resp = $curl->post($url . '/recommend', json_encode(['mastery' => $mastery]),
         ['CURLOPT_TIMEOUT' => 15, 'CURLOPT_IPRESOLVE' => CURL_IPRESOLVE_V4]);
     $rec = json_decode((string) $resp, true);
     if (!is_array($rec)) { echo json_encode(['skill' => null]); die(); }
 
+    // Don't trust the service across the Moodle boundary: only return a known skill/difficulty
+    // (the banner is built from these, so this also closes any XSS via a hostile response).
     $skill = $rec['skill'] ?? null;
+    if ($skill !== null && !in_array($skill, $skill_order, true)) { $skill = null; }
+    $difficulty = $rec['difficulty'] ?? null;
+    if (!in_array($difficulty, ['easy', 'medium', 'hard'], true)) { $difficulty = null; }
     echo json_encode([
         'skill'      => $skill,
         'label'      => $skill ? ($skill_label[$skill] ?? $skill) : null,
-        'difficulty' => $rec['difficulty'] ?? null,
+        'difficulty' => $difficulty,
         'source'     => $rec['source'] ?? null,
         'attempted'  => array_sum($total),
     ]);
