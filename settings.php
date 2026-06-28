@@ -39,6 +39,27 @@ if ($hassiteconfig) {
         0
     ));
 
+    // Which AI backend to use: Moodle's built-in core AI (reuses a site-configured provider/key, with
+    // Moodle's AI policy + logging) or this plugin's own provider/key below. Auto prefers core when a
+    // core provider is configured, otherwise uses this plugin's own provider.
+    $settings->add(new admin_setting_configselect(
+        'local_aitutor/aibackend',
+        get_string('aibackend', 'local_aitutor'),
+        get_string('aibackend_desc', 'local_aitutor'),
+        'auto',
+        [
+            'auto' => get_string('aibackend_auto', 'local_aitutor'),
+            'core' => get_string('aibackend_core', 'local_aitutor'),
+            'own'  => get_string('aibackend_own', 'local_aitutor'),
+        ]
+    ));
+
+    $settings->add(new admin_setting_heading(
+        'local_aitutor/ownheading',
+        get_string('ownheading', 'local_aitutor'),
+        get_string('ownheading_desc', 'local_aitutor')
+    ));
+
     $settings->add(new admin_setting_configselect(
         'local_aitutor/provider',
         get_string('provider', 'local_aitutor'),

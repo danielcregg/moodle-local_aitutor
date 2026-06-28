@@ -15,9 +15,10 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Hint endpoint. The browser posts the cmid + question + the student's current answer; we verify
- * the user may attempt that quiz, call the AI server-side (the key never leaves the server), log
- * the hint, and return it as JSON.
+ * Hint endpoint. The browser posts the cmid + question + the student's current answer; we verify the
+ * user may attempt that quiz, call the AI server-side (the key never leaves the server), log the hint
+ * and return it as JSON. A second action ('acceptpolicy') records the user's explicit acceptance of
+ * Moodle's AI User Policy when the core-AI backend is in use.
  *
  * @package    local_aitutor
  * @copyright  2026 Daniel Cregg
@@ -28,14 +29,9 @@ define('AJAX_SCRIPT', true);
 require(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/questionlib.php');
 
-$cmid     = required_param('cmid', PARAM_INT);
-$question = core_text::substr(required_param('question', PARAM_RAW), 0, 1500);
-$answer   = core_text::substr(required_param('answer', PARAM_RAW), 0, 500);
-$feedback = core_text::substr(optional_param('feedback', '', PARAM_RAW), 0, 1000);
-$attempt  = max(1, optional_param('attempt', 1, PARAM_INT));
-// Optional: identify the live STACK attempt so we can ground the hint in CAS-verified facts.
-$qubaid   = optional_param('qubaid', 0, PARAM_INT);
-$slot     = optional_param('slot', 0, PARAM_INT);
+$cmid   = required_param('cmid', PARAM_INT);
+// 'hint' (default) or 'acceptpolicy' (record the user's explicit AI-policy acceptance).
+$action = optional_param('action', 'hint', PARAM_ALPHA);
 
 // Access control: real module context + the user must be allowed to attempt this quiz.
 [$course, $cm] = get_course_and_cm_from_cmid($cmid, 'quiz');
@@ -52,6 +48,24 @@ if (!get_config('local_aitutor', 'enabled')) {
     die();
 }
 
+// Record the user's explicit acceptance of the AI User Policy (an explicit action), then stop. This
+// mirrors core's set_policy_status: it needs moodle/ai:acceptpolicy in the user context, and reports
+// the real outcome. Handled before the hint-only required params (the accept POST sends none).
+if ($action === 'acceptpolicy') {
+    require_capability('moodle/ai:acceptpolicy', \core\context\user::instance($USER->id));
+    echo json_encode(['accepted' => \local_aitutor\core_ai::record_policy((int) $USER->id, $context)]);
+    die();
+}
+
+// Hint request parameters.
+$question = core_text::substr(required_param('question', PARAM_RAW), 0, 1500);
+$answer   = core_text::substr(required_param('answer', PARAM_RAW), 0, 500);
+$feedback = core_text::substr(optional_param('feedback', '', PARAM_RAW), 0, 1000);
+$attempt  = max(1, optional_param('attempt', 1, PARAM_INT));
+// Optional: identify the live STACK attempt so we can ground the hint in a CAS-verified diagnosis.
+$qubaid   = optional_param('qubaid', 0, PARAM_INT);
+$slot     = optional_param('slot', 0, PARAM_INT);
+
 try {
     // Server-side abuse/cost cap: a hard ceiling on hints per user per quiz module.
     // (The per-question escalation cap in the JS is just UX.)
@@ -66,17 +80,31 @@ try {
     // (ownership is verified inside for_request; any failure falls back to feedback-only hinting).
     $grounding = \local_aitutor\stack_grounding::for_request($cm, (int) $USER->id, $qubaid, $slot, $answer) ?? [];
 
-    $hint = \local_aitutor\ai_client::hint($question, $answer, $feedback, $attempt, $grounding);
+    $hint = \local_aitutor\ai_client::hint($question, $answer, $feedback, $attempt, $grounding, $context, (int) $USER->id);
 
-    // Log the interaction — the data substrate for teaching analytics.
+    // Log the interaction — the data substrate for teaching analytics. Record the backend that
+    // actually handled it ('core_ai' or 'own:<provider>'), not just the configured own provider.
     $DB->insert_record('local_aitutor_hints', (object) [
         'userid' => $USER->id, 'cmid' => $cmid, 'attempt' => $attempt,
         'question' => $question, 'answer' => $answer, 'feedback' => $feedback,
-        'hint' => $hint, 'provider' => (string) get_config('local_aitutor', 'provider'),
+        'hint' => $hint, 'provider' => \local_aitutor\ai_client::backend_label($context),
         'timecreated' => time(),
     ]);
 
     echo json_encode(['hint' => $hint]);
+} catch (\moodle_exception $e) {
+    // The core AI backend needs the AI policy accepted first: tell the browser so it can prompt.
+    if ($e->errorcode === 'aipolicyrequired') {
+        echo json_encode([
+            'policyrequired' => true,
+            'intro' => get_string('policyintro', 'local_aitutor'),
+            'policy' => \local_aitutor\core_ai::policy_text(),
+            'acceptlabel' => get_string('policyaccept', 'local_aitutor'),
+        ]);
+        die();
+    }
+    debugging('local_aitutor hint failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
+    echo json_encode(['error' => get_string('tutortemporary', 'local_aitutor')]);
 } catch (\Throwable $e) {
     // Log the detail server-side; return a generic message (no upstream/provider leak).
     debugging('local_aitutor hint failed: ' . $e->getMessage(), DEBUG_DEVELOPER);

@@ -56,17 +56,84 @@ class ai_client {
         "- Be encouraging and concise. Plain text only - no markdown, no LaTeX delimiters.";
 
     /**
+     * Resolve which AI backend handles a request: 'core' (Moodle's AI subsystem) or 'own' (this
+     * plugin's configured provider/key).
+     *
+     * @param \context|null $context The request context (core needs one; null forces 'own' in auto).
+     * @return string 'core' or 'own'.
+     */
+    public static function resolve_backend(?\context $context): string {
+        $backend = (string) get_config('local_aitutor', 'aibackend');
+        if ($backend === 'core') {
+            return 'core';
+        }
+        if ($backend === 'own') {
+            return 'own';
+        }
+        // Auto (default): prefer core only when it is actually available, else this plugin's provider.
+        return ($context !== null && core_ai::available()) ? 'core' : 'own';
+    }
+
+    /**
+     * A short label of the backend that would handle a request, for logging.
+     *
+     * @param \context|null $context The request context.
+     * @return string 'core_ai' or 'own:<provider>'.
+     */
+    public static function backend_label(?\context $context): string {
+        if (self::resolve_backend($context) === 'core') {
+            return 'core_ai';
+        }
+        return 'own:' . (string) get_config('local_aitutor', 'provider');
+    }
+
+    /**
      * Generate a single Socratic hint.
      *
      * @param string $question The question text the student is working on.
      * @param string $answer The student's current answer.
      * @param string $feedback The grader feedback for that answer.
      * @param int $attempt The hint attempt number (drives escalation).
-     * @param array $grounding Optional CAS-verified facts (modelanswer + difference) from stack_grounding.
+     * @param array $grounding Optional CAS-verified diagnosis (['class' => ...]) from stack_grounding.
+     * @param \context|null $context The request context (for the core AI backend).
+     * @param int $userid The requesting user id (for the core AI policy check).
      * @return string The hint text.
-     * @throws \moodle_exception If the plugin is not fully configured or the AI call fails.
+     * @throws \moodle_exception If not configured, the AI policy is unaccepted (aipolicyrequired), or the call fails.
      */
-    public static function hint(string $question, string $answer, string $feedback, int $attempt, array $grounding = []): string {
+    public static function hint(
+        string $question,
+        string $answer,
+        string $feedback,
+        int $attempt,
+        array $grounding = [],
+        ?\context $context = null,
+        int $userid = 0
+    ): string {
+        $user = "QUESTION: {$question}\n"
+            . "STUDENT'S ANSWER: " . ($answer !== '' ? $answer : '(blank)') . "\n"
+            . "GRADER FEEDBACK: " . ($feedback !== '' ? $feedback : '(none)') . "\n"
+            . self::grounding_block($grounding)
+            . "ATTEMPT NUMBER: {$attempt}\n"
+            . "Give one Socratic hint appropriate to this attempt number.";
+
+        // Route through Moodle's core AI when selected/available.
+        if (self::resolve_backend($context) === 'core') {
+            if ($userid <= 0) {
+                $userid = (int) ($GLOBALS['USER']->id ?? 0);
+            }
+            // Respect the AI User Policy — never bypass it by quietly using the own-provider path.
+            if (!core_ai::policy_accepted($userid)) {
+                throw new \moodle_exception('aipolicyrequired', 'local_aitutor');
+            }
+            $text = core_ai::generate_text($context, $userid, self::SYSTEM . "\n\n" . $user);
+            // No silent failover to a different provider: the admin chose core, so surface the failure.
+            if ($text === null || trim($text) === '') {
+                throw new \moodle_exception('aifailed', 'local_aitutor', '', 'core AI provider failed');
+            }
+            return $text;
+        }
+
+        // This plugin's own provider path.
         $providerid = (string) get_config('local_aitutor', 'provider');
         $model = (string) get_config('local_aitutor', 'model');
         $key = (string) get_config('local_aitutor', 'apikey');
@@ -80,13 +147,6 @@ class ai_client {
             throw new \moodle_exception('nokey', 'local_aitutor');
         }
         $p = self::PROVIDERS[$providerid];
-
-        $user = "QUESTION: {$question}\n"
-            . "STUDENT'S ANSWER: " . ($answer !== '' ? $answer : '(blank)') . "\n"
-            . "GRADER FEEDBACK: " . ($feedback !== '' ? $feedback : '(none)') . "\n"
-            . self::grounding_block($grounding)
-            . "ATTEMPT NUMBER: {$attempt}\n"
-            . "Give one Socratic hint appropriate to this attempt number.";
 
         switch ($p['kind']) {
             case 'openai':

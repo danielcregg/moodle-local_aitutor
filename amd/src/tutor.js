@@ -107,16 +107,57 @@ const attach = (config, que) => {
     const anchor = que.querySelector('.ablock') || que.querySelector('.formulation') || que;
     anchor.appendChild(box);
 
-    btn.addEventListener('click', () => {
-        if (config.maxhints && state.attempt >= config.maxhints) {
-            panel.classList.add('aitutor-hint-show');
-            panel.textContent = strings.done || '';
-            return;
+    // Show the site's AI policy with an Accept button; on accept, record it then retry the hint.
+    // Built with text nodes only (never innerHTML) so a hostile policy string cannot inject markup.
+    const showPolicy = (data) => {
+        panel.textContent = '';
+        const intro = document.createElement('p');
+        intro.textContent = data.intro || '';
+        panel.appendChild(intro);
+        if (data.policy) {
+            const policy = document.createElement('div');
+            policy.className = 'aitutor-policy-text';
+            policy.textContent = data.policy;
+            panel.appendChild(policy);
         }
-        state.attempt += 1;
+        const accept = document.createElement('button');
+        accept.type = 'button';
+        accept.className = 'btn btn-primary btn-sm aitutor-policy-accept';
+        accept.textContent = data.acceptlabel || 'Accept';
+        accept.addEventListener('click', () => {
+            accept.disabled = true;
+            const body = new URLSearchParams({
+                sesskey: config.sesskey,
+                cmid: String(config.cmid || ''),
+                action: 'acceptpolicy'
+            });
+            fetch(config.ajaxurl, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: body.toString()
+            }).then((response) => response.json())
+                .then((res) => {
+                    if (res && res.accepted) {
+                        postHint();
+                    } else {
+                        panel.textContent = strings.unavailable || '';
+                    }
+                    return res;
+                })
+                .catch(() => {
+                    panel.textContent = strings.unavailable || '';
+                });
+        });
+        panel.appendChild(accept);
+    };
+
+    const postHint = () => {
         btn.disabled = true;
         panel.classList.add('aitutor-hint-show');
         panel.textContent = strings.thinking || '';
+        // Use the next escalation level for this request, but only commit it once a hint is actually
+        // returned — a policy prompt or a failure must not consume the student's hint quota.
+        const thisAttempt = state.attempt + 1;
         const ids = qubaSlot(que);
         const body = new URLSearchParams({
             sesskey: config.sesskey,
@@ -124,17 +165,20 @@ const attach = (config, que) => {
             question: questionText(que),
             answer: currentAnswer(que),
             feedback: graderFeedback(que),
-            attempt: String(state.attempt),
+            attempt: String(thisAttempt),
             qubaid: ids.qubaid,
             slot: ids.slot
         });
-        fetch(config.ajaxurl, {
+        return fetch(config.ajaxurl, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
             body: body.toString()
         }).then((response) => response.json())
             .then((data) => {
-                if (data.hint) {
+                if (data.policyrequired) {
+                    showPolicy(data);
+                } else if (data.hint) {
+                    state.attempt = thisAttempt;
                     panel.textContent = '💡 ' + data.hint;
                 } else {
                     panel.textContent = data.error || strings.unavailable || '';
@@ -147,6 +191,15 @@ const attach = (config, que) => {
             .finally(() => {
                 btn.disabled = false;
             });
+    };
+
+    btn.addEventListener('click', () => {
+        if (config.maxhints && state.attempt >= config.maxhints) {
+            panel.classList.add('aitutor-hint-show');
+            panel.textContent = strings.done || '';
+            return;
+        }
+        postHint();
     });
 };
 

@@ -24,8 +24,14 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+$string['aibackend'] = 'AI backend';
+$string['aibackend_auto'] = 'Auto — Moodle\'s built-in AI if a provider is configured, otherwise this plugin\'s own provider';
+$string['aibackend_core'] = 'Moodle\'s built-in AI (reuses the site\'s configured provider and key)';
+$string['aibackend_desc'] = 'Where hints are generated. "Moodle\'s built-in AI" reuses a provider configured under Site administration > AI, so no separate key is needed and Moodle\'s AI policy and logging apply. "This plugin\'s own provider" uses the provider, model and key set below. "Auto" prefers Moodle\'s AI when a core provider is available, otherwise uses this plugin\'s own provider.';
+$string['aibackend_own'] = 'This plugin\'s own provider and key (set below)';
 $string['aiempty'] = 'The AI returned an empty response.';
 $string['aifailed'] = 'The AI request failed: {$a}';
+$string['aipolicyrequired'] = 'Please accept this site\'s AI usage policy to use the tutor.';
 $string['apikey'] = 'AI API key';
 $string['apikey_desc'] = 'Stored server-side and never sent to the browser; the plugin calls the provider from the server.';
 $string['enabled'] = 'Enable the AI tutor';
@@ -41,7 +47,11 @@ $string['model_desc'] = 'Model id for the chosen provider, e.g. gpt-4o-mini, gem
 $string['nokey'] = 'No AI API key is configured for the AI Tutor plugin.';
 $string['nomodel'] = 'No AI model is configured for the AI Tutor plugin.';
 $string['noprovider'] = 'No valid AI provider is configured for the AI Tutor plugin.';
+$string['ownheading'] = 'This plugin\'s own AI provider';
+$string['ownheading_desc'] = 'Used when the AI backend is "This plugin\'s own provider", or "Auto" with no core AI provider configured. Ignored when Moodle\'s built-in AI is used.';
 $string['pluginname'] = 'AI Tutor';
+$string['policyaccept'] = 'Accept and continue';
+$string['policyintro'] = 'Hints on this site are generated through Moodle\'s AI. Please review and accept the AI usage policy to continue.';
 $string['privacy:metadata:hints'] = 'A log of AI tutor hints shown to students, kept to improve teaching.';
 $string['privacy:metadata:hints:answer'] = 'The answer the student had typed when requesting the hint.';
 $string['privacy:metadata:hints:attempt'] = 'The hint attempt number for the question.';
@@ -52,7 +62,7 @@ $string['privacy:metadata:hints:provider'] = 'The AI provider used to generate t
 $string['privacy:metadata:hints:question'] = 'The question text the student was working on.';
 $string['privacy:metadata:hints:timecreated'] = 'The time the hint was generated.';
 $string['privacy:metadata:hints:userid'] = 'The user who received the hint.';
-$string['privacy:metadata:provider'] = 'To generate a hint, the question, the student answer and the grader feedback are sent to the configured external AI provider. For STACK questions a short qualitative diagnosis of the student answer (whether it is equivalent to a correct answer, differs by a constant, or differs structurally), computed by Maxima from the student answer, is also sent to ground the hint; the model answer and exact values are never sent. This plugin stores no data on the provider.';
+$string['privacy:metadata:provider'] = 'To generate a hint, the question, the student answer and the grader feedback are sent to an external AI provider. For STACK questions a short qualitative diagnosis of the student answer (whether it is equivalent to a correct answer, differs by a constant, or differs structurally), computed by Maxima from the student answer, is also sent to ground the hint; the model answer and exact values are never sent. When the AI backend is set to Moodle\'s built-in AI, the request is handled by Moodle\'s core AI subsystem (which governs that disclosure) instead of this plugin\'s own provider. This plugin stores no data on the provider.';
 $string['privacy:metadata:provider:answer'] = 'The answer the student has currently typed.';
 $string['privacy:metadata:provider:diagnosis'] = 'A qualitative classification of the student answer (equivalent / off by a constant / structurally different), derived from the student answer by Maxima.';
 $string['privacy:metadata:provider:feedback'] = 'The grader feedback for the student answer.';
