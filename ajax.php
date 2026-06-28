@@ -30,7 +30,7 @@ require(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/questionlib.php');
 
 $cmid   = required_param('cmid', PARAM_INT);
-// 'hint' (default) or 'acceptpolicy' (record the user's explicit AI-policy acceptance).
+// Either 'hint' (default) or 'acceptpolicy' (record the user's explicit AI-policy acceptance).
 $action = optional_param('action', 'hint', PARAM_ALPHA);
 
 // Access control: real module context + the user must be allowed to attempt this quiz.
