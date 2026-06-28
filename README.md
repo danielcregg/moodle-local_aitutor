@@ -73,12 +73,31 @@ and does nothing until you:
 - `ajax.php` re-checks `mod/quiz:attempt`, enforces an abuse cap, calls the AI **server-side**, logs
   the hint, and returns it. The Socratic system prompt forbids revealing the answer.
 
+### CAS-grounded hints (the oracle, not the LLM, does the maths)
+
+LLMs are unreliable at symbolic maths, so the tutor never asks the AI to judge correctness. Instead,
+for a STACK question it asks **Moodle's own STACK / Maxima** to classify how the student's current
+answer relates to a correct one, and gives the AI only that qualitative class:
+
+- **equivalent** — algebraically correct but in the wrong *form* (e.g. not expanded/factored);
+- **constant** — off by a constant term;
+- **structural** — a term involving the variable is wrong, missing or extra.
+
+Only the class is sent to the AI. The model answer and the exact difference are computed server-side
+and never leave it, so the hint stays accurate **and** cannot leak the answer. If grounding is not
+available (non-STACK or multi-input question, an invalid answer, or any CAS error) the tutor falls
+back to hinting from the question text and grader feedback alone. The student value enters the CAS only
+through STACK's own validated-input path, and the question usage is verified to belong to the student's
+own attempt first.
+
 ## Privacy
 
 This plugin **stores** a per-user hint log (`local_aitutor_hints`) and **discloses** the question
-text, the student's answer and the grader feedback to the configured external AI provider in order to
-generate a hint. All of this is declared via the Moodle Privacy API (`classes/privacy/`), including
-full export and deletion support. Choose a provider whose data-handling terms suit your institution.
+text, the student's answer, the grader feedback, and (for STACK questions) a short qualitative
+diagnosis of the answer to the configured external AI provider in order to generate a hint. The model
+answer and exact CAS values are never sent. All of this is declared via the Moodle Privacy API
+(`classes/privacy/`), including full export and deletion support. Choose a provider whose data-handling
+terms suit your institution.
 
 ## Security
 

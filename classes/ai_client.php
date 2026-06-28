@@ -50,6 +50,9 @@ class ai_client {
         "- Escalate by attempt: 1 = a gentle conceptual nudge; 2 = point to the specific step or " .
         "error; 3+ = name the method/rule to apply (but still NOT the final value).\n" .
         "- Ground the hint in the student's actual answer and the grader feedback.\n" .
+        "- You may also be given an authoritative CAS DIAGNOSIS of the student's answer (whether it is " .
+        "equivalent but in the wrong form, off by a constant, or has a wrong term). Trust it over your " .
+        "own algebra and use it to target your hint; do not quote it verbatim.\n" .
         "- Be encouraging and concise. Plain text only - no markdown, no LaTeX delimiters.";
 
     /**
@@ -59,10 +62,11 @@ class ai_client {
      * @param string $answer The student's current answer.
      * @param string $feedback The grader feedback for that answer.
      * @param int $attempt The hint attempt number (drives escalation).
+     * @param array $grounding Optional CAS-verified facts (modelanswer + difference) from stack_grounding.
      * @return string The hint text.
      * @throws \moodle_exception If the plugin is not fully configured or the AI call fails.
      */
-    public static function hint(string $question, string $answer, string $feedback, int $attempt): string {
+    public static function hint(string $question, string $answer, string $feedback, int $attempt, array $grounding = []): string {
         $providerid = (string) get_config('local_aitutor', 'provider');
         $model = (string) get_config('local_aitutor', 'model');
         $key = (string) get_config('local_aitutor', 'apikey');
@@ -80,6 +84,7 @@ class ai_client {
         $user = "QUESTION: {$question}\n"
             . "STUDENT'S ANSWER: " . ($answer !== '' ? $answer : '(blank)') . "\n"
             . "GRADER FEEDBACK: " . ($feedback !== '' ? $feedback : '(none)') . "\n"
+            . self::grounding_block($grounding)
             . "ATTEMPT NUMBER: {$attempt}\n"
             . "Give one Socratic hint appropriate to this attempt number.";
 
@@ -93,6 +98,34 @@ class ai_client {
             default:
                 throw new \moodle_exception('noprovider', 'local_aitutor');
         }
+    }
+
+    /**
+     * Build the optional CAS-diagnosis block for the prompt (empty string when no grounding available).
+     *
+     * Only a qualitative class is included — never the model answer or the exact difference — so the
+     * hint cannot leak the answer even if the model ignores instructions.
+     *
+     * @param array $grounding ['class' => 'equivalent'|'constant'|'structural'] from stack_grounding.
+     * @return string The prompt fragment, or '' for feedback-only hinting.
+     */
+    private static function grounding_block(array $grounding): string {
+        $facts = [
+            'equivalent' => "the student's answer is algebraically EQUIVALENT to a correct answer but is "
+                . "in the wrong FORM for what the question asks (e.g. not expanded, factored or simplified "
+                . "as required) — nudge them toward the required form",
+            'constant' => "the student's answer differs from a correct answer by only a CONSTANT (a term "
+                . "with no variable) — they have likely added or dropped a constant term; do not say which",
+            'structural' => "the student's answer differs from a correct answer by a term that INVOLVES "
+                . "THE VARIABLE — a term is wrong, missing or extra; point them to re-check their working "
+                . "without naming the term",
+        ];
+        $class = $grounding['class'] ?? '';
+        if (!isset($facts[$class])) {
+            return '';
+        }
+        return "CAS DIAGNOSIS (computed by the question's own Maxima — authoritative): "
+            . $facts[$class] . ".\n";
     }
 
     /**

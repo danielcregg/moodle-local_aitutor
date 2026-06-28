@@ -26,12 +26,16 @@
 
 define('AJAX_SCRIPT', true);
 require(__DIR__ . '/../../config.php');
+require_once($CFG->libdir . '/questionlib.php');
 
 $cmid     = required_param('cmid', PARAM_INT);
 $question = core_text::substr(required_param('question', PARAM_RAW), 0, 1500);
 $answer   = core_text::substr(required_param('answer', PARAM_RAW), 0, 500);
 $feedback = core_text::substr(optional_param('feedback', '', PARAM_RAW), 0, 1000);
 $attempt  = max(1, optional_param('attempt', 1, PARAM_INT));
+// Optional: identify the live STACK attempt so we can ground the hint in CAS-verified facts.
+$qubaid   = optional_param('qubaid', 0, PARAM_INT);
+$slot     = optional_param('slot', 0, PARAM_INT);
 
 // Access control: real module context + the user must be allowed to attempt this quiz.
 [$course, $cm] = get_course_and_cm_from_cmid($cmid, 'quiz');
@@ -58,7 +62,11 @@ try {
         die();
     }
 
-    $hint = \local_aitutor\ai_client::hint($question, $answer, $feedback, $attempt);
+    // Ground the hint in a CAS-verified diagnosis when we can resolve the live STACK attempt
+    // (ownership is verified inside for_request; any failure falls back to feedback-only hinting).
+    $grounding = \local_aitutor\stack_grounding::for_request($cm, (int) $USER->id, $qubaid, $slot, $answer) ?? [];
+
+    $hint = \local_aitutor\ai_client::hint($question, $answer, $feedback, $attempt, $grounding);
 
     // Log the interaction — the data substrate for teaching analytics.
     $DB->insert_record('local_aitutor_hints', (object) [

@@ -28,11 +28,11 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component    = 'local_aitutor';
-$plugin->version      = 2026062400;
+$plugin->version      = 2026062402;
 $plugin->requires     = 2024100700;             // Moodle 4.5 (LTS) — uses the Hooks API.
 $plugin->supported    = [405, 405];             // Developed and tested on Moodle 4.5 LTS.
 $plugin->maturity     = MATURITY_BETA;
-$plugin->release      = '1.0.0-beta';
+$plugin->release      = '1.1.0-beta';
 $plugin->dependencies = [
     'qtype_stack' => ANY_VERSION, // Tutors STACK questions specifically.
 ];

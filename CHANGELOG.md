@@ -4,6 +4,25 @@ All notable changes to **local_aitutor** are documented in this file. The format
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.0-beta] — 2026-06-28
+
+Adds CAS-grounded hints for STACK questions.
+
+### Added
+- **CAS-grounded hints**: for STACK questions the plugin asks Moodle's own STACK / Maxima to classify
+  how the student's current answer relates to a correct one — equivalent but in the wrong form, off by
+  a constant, or structurally different — and gives only that qualitative class to the AI, so the hint
+  is accurate without the model doing the (unreliable) algebra itself.
+- The model answer and the exact difference are computed server-side and **never** sent to the AI or
+  the browser, so a hint cannot leak the answer (even if a student games the input).
+- Automatic fall-back to feedback-only hinting when grounding is unavailable (non-STACK or multi-input
+  question, invalid answer, or any CAS error).
+
+### Security
+- The student value enters the CAS only through STACK's own validated-input mechanism (the same path
+  STACK uses for grading); the question usage is verified to belong to the requesting user's attempt at
+  this quiz before any grounding is computed.
+
 ## [1.0.0-beta] — 2026-06-23
 
 First public release, prepared for submission to the Moodle Plugins directory.

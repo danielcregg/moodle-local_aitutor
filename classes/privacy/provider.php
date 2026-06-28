@@ -59,9 +59,10 @@ class provider implements
         ], 'privacy:metadata:hints');
 
         $collection->add_external_location_link('aiprovider', [
-            'question' => 'privacy:metadata:provider:question',
-            'answer'   => 'privacy:metadata:provider:answer',
-            'feedback' => 'privacy:metadata:provider:feedback',
+            'question'  => 'privacy:metadata:provider:question',
+            'answer'    => 'privacy:metadata:provider:answer',
+            'feedback'  => 'privacy:metadata:provider:feedback',
+            'diagnosis' => 'privacy:metadata:provider:diagnosis',
         ], 'privacy:metadata:provider');
 
         return $collection;

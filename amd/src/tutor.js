@@ -65,6 +65,19 @@ const graderFeedback = (que) => {
 };
 
 /**
+ * Identify the live STACK attempt from a question's field names (q{usageid}:{slot}_...), so the
+ * server can ground the hint in CAS-verified facts. Returns blanks if it cannot be parsed.
+ *
+ * @param {HTMLElement} que The .que element.
+ * @return {{qubaid: string, slot: string}} The usage id and slot, or blanks.
+ */
+const qubaSlot = (que) => {
+    const input = que.querySelector('.formulation [name^="q"]');
+    const match = input && input.name ? input.name.match(/^q(\d+):(\d+)_/) : null;
+    return match ? {qubaid: match[1], slot: match[2]} : {qubaid: '', slot: ''};
+};
+
+/**
  * Attach a hint button and panel to one STACK question.
  *
  * @param {object} config The tutor configuration passed from PHP.
@@ -104,13 +117,16 @@ const attach = (config, que) => {
         btn.disabled = true;
         panel.classList.add('aitutor-hint-show');
         panel.textContent = strings.thinking || '';
+        const ids = qubaSlot(que);
         const body = new URLSearchParams({
             sesskey: config.sesskey,
             cmid: String(config.cmid || ''),
             question: questionText(que),
             answer: currentAnswer(que),
             feedback: graderFeedback(que),
-            attempt: String(state.attempt)
+            attempt: String(state.attempt),
+            qubaid: ids.qubaid,
+            slot: ids.slot
         });
         fetch(config.ajaxurl, {
             method: 'POST',
