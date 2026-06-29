@@ -14,9 +14,9 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * AI Tutor: a Socratic hint button plus an optional RL "practise next" banner on STACK quiz pages.
+ * AI Tutor: a Socratic hint button on STACK quiz-attempt pages.
  *
- * The AI key stays server-side; this module only calls the plugin's own endpoints.
+ * The AI key stays server-side; this module only calls the plugin's own endpoint.
  *
  * @module     local_aitutor/tutor
  * @copyright  2026 Daniel Cregg
@@ -204,51 +204,6 @@ const attach = (config, que) => {
 };
 
 /**
- * Ask the RL teaching policy what to practise next and show it as a banner.
- *
- * @param {object} config The tutor configuration passed from PHP.
- * @return {void}
- */
-const showRecommendation = (config) => {
-    if (!config.recommendurl) {
-        return;
-    }
-    const strings = config.strings || {};
-    const body = new URLSearchParams({sesskey: config.sesskey, cmid: String(config.cmid || '')});
-    fetch(config.recommendurl, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: body.toString()
-    }).then((response) => response.json())
-        .then((data) => {
-            if (!data || !data.skill) {
-                return data;
-            }
-            const banner = document.createElement('div');
-            banner.className = 'aitutor-reco';
-            // Build with text nodes (never innerHTML) so a hostile response cannot inject markup.
-            const strong = document.createElement('strong');
-            strong.textContent = (config.reclabel || 'Practise next') + ':';
-            const tail = document.createElement('span');
-            tail.className = 'aitutor-reco-tail';
-            tail.textContent = ' — ' + (strings.rectail || '');
-            const mid = ' ' + (data.label || data.skill) + (data.difficulty ? ' (' + data.difficulty + ')' : '');
-            banner.appendChild(document.createTextNode('🧭 '));
-            banner.appendChild(strong);
-            banner.appendChild(document.createTextNode(mid));
-            banner.appendChild(tail);
-            const anchor = document.querySelector('.que');
-            if (anchor && anchor.parentNode) {
-                anchor.parentNode.insertBefore(banner, anchor);
-            }
-            return data;
-        })
-        .catch(() => {
-            return null; // Recommendation is optional; never disrupt the page.
-        });
-};
-
-/**
  * Entry point: wire the tutor into the current quiz-attempt page.
  *
  * @param {object} config The tutor configuration passed from PHP.
@@ -263,5 +218,4 @@ export const init = (config) => {
     }
     // Only attach to STACK questions — never send other question types' content to the AI.
     document.querySelectorAll('.que.stack').forEach((que) => attach(config, que));
-    showRecommendation(config);
 };

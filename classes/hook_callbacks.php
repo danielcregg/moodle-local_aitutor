@@ -58,16 +58,10 @@ class hook_callbacks {
             'cmid'     => $cmid,
             'maxhints' => (int) (get_config('local_aitutor', 'maxhints') ?: 3),
             'label'    => get_string('hintbutton', 'local_aitutor'),
-            'reclabel' => get_string('recommendnext', 'local_aitutor'),
-            // If a recommend service is configured, the tutor also shows "what to practise next"
-            // from the RL policy (empty string disables it client-side).
-            'recommendurl' => get_config('local_aitutor', 'recommendurl')
-                ? (new \moodle_url('/local/aitutor/recommend.php'))->out(false) : '',
             'strings' => [
                 'thinking'    => get_string('hintthinking', 'local_aitutor'),
                 'done'        => get_string('hintsdone', 'local_aitutor'),
                 'unavailable' => get_string('tutorunavailable', 'local_aitutor'),
-                'rectail'     => get_string('recommendtail', 'local_aitutor'),
             ],
         ];
 

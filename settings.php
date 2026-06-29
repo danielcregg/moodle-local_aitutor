@@ -99,22 +99,4 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
-    // Optional Phase 3 feature: the RL teaching policy. If set, the tutor also shows "what to
-    // practise next" (skill x difficulty) from the learned policy, based on the student's measured
-    // mastery. Empty by default — the feature is off until an administrator configures an endpoint.
-    $settings->add(new admin_setting_configtext(
-        'local_aitutor/recommendurl',
-        get_string('recommendurl', 'local_aitutor'),
-        get_string('recommendurl_desc', 'local_aitutor'),
-        ''
-    ));
-
-    // Only needed if recommendurl is a public route that requires the bearer token; leave blank
-    // for an internal service.
-    $settings->add(new admin_setting_configpasswordunmask(
-        'local_aitutor/recommendtoken',
-        get_string('recommendtoken', 'local_aitutor'),
-        get_string('recommendtoken_desc', 'local_aitutor'),
-        ''
-    ));
 }

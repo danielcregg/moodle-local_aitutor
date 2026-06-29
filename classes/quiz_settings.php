@@ -29,7 +29,7 @@ namespace local_aitutor;
  *
  * The safe default is OFF: a quiz with no row is treated as not opted in, so the tutor never appears on
  * a quiz a teacher has not explicitly enabled. This is the single source of truth checked by the JS
- * injection (hook_callbacks) and by every server endpoint (ajax.php, recommend.php).
+ * injection (hook_callbacks) and by the hint endpoint (ajax.php).
  */
 class quiz_settings {
     /**

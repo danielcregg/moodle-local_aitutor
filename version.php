@@ -18,7 +18,7 @@
  * Version metadata for the AI Tutor local plugin.
  *
  * Injects a Socratic AI tutor into STACK quiz-attempt pages. The AI key lives server-side; the
- * browser only calls this plugin's own endpoint. Optionally shows an RL "practise next" suggestion.
+ * browser only calls this plugin's own endpoint.
  *
  * @package    local_aitutor
  * @copyright  2026 Daniel Cregg
@@ -28,7 +28,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component    = 'local_aitutor';
-$plugin->version      = 2026062900;
+$plugin->version      = 2026062901;
 $plugin->requires     = 2024100700;             // Moodle 4.5 (LTS) — uses the Hooks API.
 $plugin->supported    = [405, 405];             // Developed and tested on Moodle 4.5 LTS.
 $plugin->maturity     = MATURITY_BETA;

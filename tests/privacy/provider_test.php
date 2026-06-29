@@ -42,9 +42,8 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     public function test_get_metadata(): void {
         $collection = new collection('local_aitutor');
         $items = provider::get_metadata($collection)->get_collection();
-        // One database_table (the hint log) plus two external_location_links (the AI provider and the
-        // optional recommendation service).
-        $this->assertCount(3, $items);
+        // One database_table (the hint log) plus one external_location_link (the AI provider).
+        $this->assertCount(2, $items);
     }
 
     /**

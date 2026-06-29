@@ -10,10 +10,6 @@ A Moodle **local plugin** that adds a patient **Socratic AI tutor** to
 answer. The AI provider's API key lives **server-side**; the browser only ever calls this plugin's
 own endpoint.
 
-It can also show an optional **🧭 Practise next** banner: a suggestion of what to work on next,
-produced by an external reinforcement-learning teaching policy from the student's measured per-skill
-mastery.
-
 ```mermaid
 sequenceDiagram
     participant S as Student
@@ -39,9 +35,6 @@ sequenceDiagram
   administration → AI* — no separate key needed) **or** this plugin's own API key for one external
   provider (OpenAI, Anthropic Claude, Google Gemini, Groq, DeepSeek, Mistral, Cerebras, or an
   OpenAI-compatible gateway).
-- *(Optional)* a **/recommend** teaching-policy service for the "Practise next" banner — a reference
-  implementation ships with the parent project,
-  [stack-question-forge](https://github.com/danielcregg/stack-question-forge).
 
 ## Install
 
@@ -65,8 +58,6 @@ and does nothing until you:
 | **Model** | The model id, e.g. `gpt-4o-mini`, `gemini-2.5-flash`, `claude-3-5-haiku`. |
 | **AI API key** | Stored server-side, never sent to the browser. |
 | **Max hints per question** | Escalation cap per question (a separate hard server cap prevents abuse). |
-| **RL teaching-policy URL** *(optional)* | `/recommend` endpoint for the "Practise next" banner. Empty = feature off. |
-| **RL service token** *(optional)* | Bearer token, only if the policy URL is a public route. |
 
 ## How it works
 
@@ -101,22 +92,21 @@ This plugin **stores** a per-user hint log (`local_aitutor_hints`) and **disclos
 text, the student's answer, the grader feedback, and (for STACK questions) a short qualitative
 diagnosis of the answer to the configured AI backend in order to generate a hint. When the backend is
 Moodle's built-in core AI, the request is handled by Moodle's core AI subsystem, which governs that
-disclosure. The model answer and exact CAS values are never sent. If the optional "Practise next"
-service is configured, a per-skill mastery profile derived from the student's quiz attempts is sent to
-it. All of this is declared via the Moodle Privacy API (`classes/privacy/`), including full export and
-deletion support. Choose providers/services whose data-handling terms suit your institution.
+disclosure. The model answer and exact CAS values are never sent. All of this is declared via the
+Moodle Privacy API (`classes/privacy/`), including full export and deletion support. Choose a provider
+whose data-handling terms suit your institution.
 
 ## Security
 
 - Disabled by default; no external call until fully configured.
 - Server-side key only; capability-gated (`mod/quiz:attempt`) with sesskey; per-user/per-quiz hint cap.
-- The optional recommendation URL is admin-only and validated (http/https, host required, no embedded
-  credentials), redirects disabled, protocols pinned; its response is allow-listed before display.
+- Per-quiz opt-in is enforced server-side on every endpoint, so the tutor cannot be used on a quiz that
+  did not enable it.
 
 ## For reviewers / maintainers
 
-- To exercise hints, set a provider + model + key and attempt a STACK quiz. The "Practise next"
-  banner is optional and only appears when a `/recommend` URL is configured.
+- To exercise hints, set a provider + model + key, enable the tutor on a quiz, and attempt that STACK
+  quiz.
 - The committed `amd/build/tutor.min.js` is a working build of `amd/src/tutor.js`. Regenerate it
   canonically with `grunt amd` from a Moodle checkout before tagging a release.
 

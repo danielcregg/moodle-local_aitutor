@@ -10,7 +10,7 @@ Per-quiz control: teachers choose which quizzes get the tutor (off by default).
 
 ### Added
 - **Per-quiz opt-in.** A new "Enable the AI Tutor on this quiz" checkbox (off by default) on the quiz
-  settings form. The hint button — and the "practise next" suggestion — appear only on quizzes a teacher
+  settings form. The hint button appears only on quizzes a teacher
   has explicitly enabled, so the tutor never shows on a quiz nobody opted in, including graded exams. The
   site-level setting remains the administrator's master switch and the per-quiz option is shown to teachers
   only when the site has enabled the tutor.
@@ -19,13 +19,18 @@ Per-quiz control: teachers choose which quizzes get the tutor (off by default).
   orphaned personal data remains once the module context is gone.
 
 ### Security
-- The per-quiz opt-in is enforced **server-side on every entry point** — the JS injection, the hint
-  endpoint and the recommendation endpoint — so a crafted request cannot use the tutor on a quiz that did
-  not enable it.
+- The per-quiz opt-in is enforced **server-side** — both the JS injection and the hint endpoint — so a
+  crafted request cannot use the tutor on a quiz that did not enable it.
 
 ### Changed
 - The site "Enable the AI tutor" description now explains the two-layer model (the site enables the tutor;
   teachers choose per quiz).
+
+### Removed
+- The optional "Practise next" RL banner and its `/recommend` endpoint, settings (RL teaching-policy URL and
+  token) and privacy disclosure. The plugin is now focused on the Socratic hint tutor; an adaptive
+  "what to practise next" recommendation belongs in a more actionable placement and is planned separately.
+  An upgrade step removes the now-unused settings.
 
 ## [1.1.0-beta] — 2026-06-28
 

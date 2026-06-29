@@ -59,5 +59,12 @@ function xmldb_local_aitutor_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026062900, 'local', 'aitutor');
     }
 
+    if ($oldversion < 2026062901) {
+        // The "practise next" RL banner was removed; drop its now-unused settings.
+        unset_config('recommendurl', 'local_aitutor');
+        unset_config('recommendtoken', 'local_aitutor');
+        upgrade_plugin_savepoint(true, 2026062901, 'local', 'aitutor');
+    }
+
     return true;
 }

@@ -35,16 +35,3 @@
 .aitutor-hint-show {
     display: block;
 }
-
-.aitutor-reco {
-    margin: 10px 0;
-    padding: 10px 14px;
-    border: 1px solid #cfe2ff;
-    background: #eef5ff;
-    border-radius: 8px;
-    font-size: 14px;
-}
-
-.aitutor-reco-tail {
-    color: #667;
-}
