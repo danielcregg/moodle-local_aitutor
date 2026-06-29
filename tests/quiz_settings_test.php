@@ -25,6 +25,8 @@
 namespace local_aitutor;
 
 /**
+ * Tests for the per-quiz opt-in store.
+ *
  * @covers \local_aitutor\quiz_settings
  */
 final class quiz_settings_test extends \advanced_testcase {
