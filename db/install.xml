@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/aitutor/db" VERSION="2026062400" COMMENT="AI Tutor"
+<XMLDB PATH="local/aitutor/db" VERSION="2026062900" COMMENT="AI Tutor"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
   <TABLES>
@@ -22,6 +22,20 @@
       <INDEXES>
         <INDEX NAME="cmid" UNIQUE="false" FIELDS="cmid"/>
         <INDEX NAME="useridcmid" UNIQUE="false" FIELDS="userid, cmid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_aitutor_quiz" COMMENT="Per-quiz opt-in for the AI tutor (off by default)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="cmid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="cmid" UNIQUE="true" FIELDS="cmid"/>
       </INDEXES>
     </TABLE>
   </TABLES>

@@ -55,6 +55,39 @@ class stack_grounding {
     }
 
     /**
+     * Whether a question usage + slot is a STACK question in one of this user's attempts at this quiz.
+     *
+     * Used to bind a hint request to a real, owned STACK attempt (so the endpoint cannot be abused as a
+     * free-form AI proxy), to refuse a forged usage id, and to reject a bogus slot that is not a STACK
+     * question in that usage.
+     *
+     * @param \cm_info $cm The quiz course module.
+     * @param int $userid The requesting user.
+     * @param int $qubaid The question usage id.
+     * @param int $slot The question slot within the usage.
+     * @return bool True if the slot is a STACK question in one of this user's attempts at this quiz.
+     */
+    public static function owns_attempt(\cm_info $cm, int $userid, int $qubaid, int $slot): bool {
+        global $DB;
+        if ($qubaid <= 0 || $slot <= 0) {
+            return false;
+        }
+        // The usage must be one of THIS user's attempts at THIS quiz.
+        $attempt = $DB->get_record('quiz_attempts', ['uniqueid' => $qubaid], 'id, userid, quiz');
+        if (!$attempt || (int) $attempt->userid !== $userid || (int) $attempt->quiz !== (int) $cm->instance) {
+            return false;
+        }
+        // ...and the slot must be a real STACK question within that usage (not a guessed slot number).
+        return $DB->record_exists_sql(
+            "SELECT 1
+               FROM {question_attempts} qatt
+               JOIN {question} q ON q.id = qatt.questionid
+              WHERE qatt.questionusageid = :qubaid AND qatt.slot = :slot AND q.qtype = 'stack'",
+            ['qubaid' => $qubaid, 'slot' => $slot]
+        );
+    }
+
+    /**
      * Resolve and verify a question attempt from a hint request, then classify the student's answer.
      *
      * The question usage must belong to one of this user's attempts at this quiz, otherwise we refuse
@@ -68,13 +101,8 @@ class stack_grounding {
      * @return array|null ['class' => string] or null to fall back to feedback-only hinting.
      */
     public static function for_request(\cm_info $cm, int $userid, int $qubaid, int $slot, string $studentanswer): ?array {
-        global $DB;
-        if ($qubaid <= 0 || $slot <= 0 || trim($studentanswer) === '') {
-            return null;
-        }
-        // The usage must be one of THIS user's attempts at THIS quiz.
-        $attempt = $DB->get_record('quiz_attempts', ['uniqueid' => $qubaid], 'id, userid, quiz');
-        if (!$attempt || (int) $attempt->userid !== $userid || (int) $attempt->quiz !== (int) $cm->instance) {
+        // The usage must be one of THIS user's attempts at THIS quiz (a forged usage id yields no grounding).
+        if (trim($studentanswer) === '' || !self::owns_attempt($cm, $userid, $qubaid, $slot)) {
             return null;
         }
         try {
@@ -150,19 +178,19 @@ class stack_grounding {
             $session = new \stack_cas_session2([], $question->options, (int) $question->seed);
             $question->add_question_vars_to_session($session);
             // Match STACK's grading: raw inputs are loaded unsimplified.
-            $session->add_statement(new \stack_secure_loader('simp:false', 'stackforge-simp'));
+            $session->add_statement(new \stack_secure_loader('simp:false', 'aitutor-simp'));
             // Student value: validated input, injected the same secure way STACK uses for grading.
-            $session->add_statement(new \stack_secure_loader($inputname . ':' . $studentval, 'stackforge-input'));
+            $session->add_statement(new \stack_secure_loader($inputname . ':' . $studentval, 'aitutor-input'));
             // The difference (kept server-side) and a non-revealing classification of it.
             $diff = \stack_ast_container::make_from_teacher_source(
-                'stackforgediff:ratsimp((' . $inputname . ')-(' . $model . '))',
+                'aitutordiff:ratsimp((' . $inputname . ')-(' . $model . '))',
                 '',
                 new \stack_cas_security()
             );
             $session->add_statement($diff);
             $code = \stack_ast_container::make_from_teacher_source(
-                'stackforgecode:if is(stackforgediff=0) then 0 '
-                . 'elseif emptyp(listofvars(stackforgediff)) then 1 else 2',
+                'aitutorcode:if is(aitutordiff=0) then 0 '
+                . 'elseif emptyp(listofvars(aitutordiff)) then 1 else 2',
                 '',
                 new \stack_cas_security()
             );

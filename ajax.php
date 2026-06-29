@@ -48,6 +48,13 @@ if (!get_config('local_aitutor', 'enabled')) {
     die();
 }
 
+// Per-quiz opt-in: refuse if this quiz has not enabled the tutor. This defends the endpoint itself,
+// not just the JS injection — a crafted POST with a valid sesskey and cmid must not bypass the choice.
+if (!\local_aitutor\quiz_settings::is_enabled($cmid)) {
+    echo json_encode(['error' => get_string('tutortemporary', 'local_aitutor')]);
+    die();
+}
+
 // Record the user's explicit acceptance of the AI User Policy (an explicit action), then stop. This
 // mirrors core's set_policy_status: it needs moodle/ai:acceptpolicy in the user context, and reports
 // the real outcome. Handled before the hint-only required params (the accept POST sends none).
@@ -65,6 +72,13 @@ $attempt  = max(1, optional_param('attempt', 1, PARAM_INT));
 // Optional: identify the live STACK attempt so we can ground the hint in a CAS-verified diagnosis.
 $qubaid   = optional_param('qubaid', 0, PARAM_INT);
 $slot     = optional_param('slot', 0, PARAM_INT);
+
+// Bind the hint to a real STACK attempt the user owns in THIS quiz, so the endpoint cannot be used as a
+// free-form AI proxy (a valid sesskey on an opted-in quiz is not sufficient on its own).
+if (!\local_aitutor\stack_grounding::owns_attempt($cm, (int) $USER->id, $qubaid, $slot)) {
+    echo json_encode(['error' => get_string('tutortemporary', 'local_aitutor')]);
+    die();
+}
 
 try {
     // Server-side abuse/cost cap: a hard ceiling on hints per user per quiz module.

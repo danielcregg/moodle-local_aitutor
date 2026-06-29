@@ -4,6 +4,29 @@ All notable changes to **local_aitutor** are documented in this file. The format
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0-beta] — 2026-06-29
+
+Per-quiz control: teachers choose which quizzes get the tutor (off by default).
+
+### Added
+- **Per-quiz opt-in.** A new "Enable the AI Tutor on this quiz" checkbox (off by default) on the quiz
+  settings form. The hint button — and the "practise next" suggestion — appear only on quizzes a teacher
+  has explicitly enabled, so the tutor never shows on a quiz nobody opted in, including graded exams. The
+  site-level setting remains the administrator's master switch and the per-quiz option is shown to teachers
+  only when the site has enabled the tutor.
+- A `local_aitutor_quiz` table storing the per-course-module flag, with an upgrade step.
+- An event observer that removes a quiz's opt-in row and its hint log when the quiz is deleted, so no
+  orphaned personal data remains once the module context is gone.
+
+### Security
+- The per-quiz opt-in is enforced **server-side on every entry point** — the JS injection, the hint
+  endpoint and the recommendation endpoint — so a crafted request cannot use the tutor on a quiz that did
+  not enable it.
+
+### Changed
+- The site "Enable the AI tutor" description now explains the two-layer model (the site enables the tutor;
+  teachers choose per quiz).
+
 ## [1.1.0-beta] — 2026-06-28
 
 Adds CAS-grounded hints for STACK questions.

@@ -65,6 +65,12 @@ class provider implements
             'diagnosis' => 'privacy:metadata:provider:diagnosis',
         ], 'privacy:metadata:provider');
 
+        // The optional "practise next" service receives a per-skill mastery profile derived from the
+        // user's quiz attempts (only when an administrator configures a recommendation URL).
+        $collection->add_external_location_link('recommendservice', [
+            'mastery' => 'privacy:metadata:recommend:mastery',
+        ], 'privacy:metadata:recommend');
+
         return $collection;
     }
 

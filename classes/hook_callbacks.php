@@ -45,10 +45,17 @@ class hook_callbacks {
             return;
         }
 
+        // Per-quiz opt-in: the tutor appears only on quizzes a teacher has explicitly enabled (off by
+        // default), so it never loads on a quiz nobody opted in — including graded exams.
+        $cmid = isset($PAGE->cm->id) ? (int) $PAGE->cm->id : 0;
+        if (!quiz_settings::is_enabled($cmid)) {
+            return;
+        }
+
         $config = [
             'ajaxurl'  => (new \moodle_url('/local/aitutor/ajax.php'))->out(false),
             'sesskey'  => sesskey(),
-            'cmid'     => isset($PAGE->cm->id) ? (int) $PAGE->cm->id : 0,
+            'cmid'     => $cmid,
             'maxhints' => (int) (get_config('local_aitutor', 'maxhints') ?: 3),
             'label'    => get_string('hintbutton', 'local_aitutor'),
             'reclabel' => get_string('recommendnext', 'local_aitutor'),

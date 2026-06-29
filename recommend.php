@@ -27,6 +27,7 @@
 define('AJAX_SCRIPT', true);
 require(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/questionlib.php');
+require_once($CFG->libdir . '/filelib.php'); // For the \curl wrapper used to call the recommendation service.
 
 $cmid = required_param('cmid', PARAM_INT);
 [$course, $cm] = get_course_and_cm_from_cmid($cmid, 'quiz');
@@ -38,6 +39,12 @@ global $DB, $USER;
 header('Content-Type: application/json; charset=utf-8');
 
 if (!get_config('local_aitutor', 'enabled')) {
+    echo json_encode(['skill' => null]);
+    die();
+}
+
+// Per-quiz opt-in: the same gate as the hint endpoint — only recommend on quizzes the teacher enabled.
+if (!\local_aitutor\quiz_settings::is_enabled($cmid)) {
     echo json_encode(['skill' => null]);
     die();
 }

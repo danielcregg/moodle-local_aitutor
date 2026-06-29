@@ -35,8 +35,10 @@ sequenceDiagram
 - **Moodle 4.5 LTS** or later (developed and tested on 4.5; uses the Hooks API).
 - The **STACK question type** (`qtype_stack`) — the tutor targets STACK questions and declares
   `qtype_stack` as a dependency.
-- An API key for one external **AI provider** (OpenAI, Anthropic Claude, Google Gemini, Groq,
-  DeepSeek, Mistral, Cerebras, or an OpenAI-compatible gateway).
+- An **AI backend**: either Moodle's built-in **core AI** (configure a provider under *Site
+  administration → AI* — no separate key needed) **or** this plugin's own API key for one external
+  provider (OpenAI, Anthropic Claude, Google Gemini, Groq, DeepSeek, Mistral, Cerebras, or an
+  OpenAI-compatible gateway).
 - *(Optional)* a **/recommend** teaching-policy service for the "Practise next" banner — a reference
   implementation ships with the parent project,
   [stack-question-forge](https://github.com/danielcregg/stack-question-forge).
@@ -57,8 +59,9 @@ and does nothing until you:
 
 | Setting | Description |
 |---|---|
-| **Enable the AI tutor** | Master switch. Off by default. |
-| **AI provider** | Which external service generates hints. |
+| **Enable the AI tutor** | Site master switch (off by default). When on, teachers turn the tutor on **per quiz** (off by default) in each quiz's settings — so it never appears on a quiz nobody opted in, including exams. |
+| **AI backend** | Moodle's built-in core AI, this plugin's own provider/key, or *Auto* (prefers core when available). |
+| **AI provider** | Which external service generates hints (used by the own-provider backend). |
 | **Model** | The model id, e.g. `gpt-4o-mini`, `gemini-2.5-flash`, `claude-3-5-haiku`. |
 | **AI API key** | Stored server-side, never sent to the browser. |
 | **Max hints per question** | Escalation cap per question (a separate hard server cap prevents abuse). |
@@ -67,7 +70,9 @@ and does nothing until you:
 
 ## How it works
 
-- A footer hook loads the `local_aitutor/tutor` AMD module **only** on STACK quiz-attempt pages.
+- A footer hook loads the `local_aitutor/tutor` AMD module **only** on quiz-attempt pages of quizzes a
+  teacher has enabled the tutor on (off by default), and the module attaches to STACK questions. The
+  per-quiz opt-in is also enforced server-side on every endpoint.
 - The module adds a hint button to each STACK question, reads the student's current answer + grader
   feedback from the DOM, and posts them to `ajax.php`.
 - `ajax.php` re-checks `mod/quiz:attempt`, enforces an abuse cap, calls the AI **server-side**, logs
@@ -94,10 +99,12 @@ own attempt first.
 
 This plugin **stores** a per-user hint log (`local_aitutor_hints`) and **discloses** the question
 text, the student's answer, the grader feedback, and (for STACK questions) a short qualitative
-diagnosis of the answer to the configured external AI provider in order to generate a hint. The model
-answer and exact CAS values are never sent. All of this is declared via the Moodle Privacy API
-(`classes/privacy/`), including full export and deletion support. Choose a provider whose data-handling
-terms suit your institution.
+diagnosis of the answer to the configured AI backend in order to generate a hint. When the backend is
+Moodle's built-in core AI, the request is handled by Moodle's core AI subsystem, which governs that
+disclosure. The model answer and exact CAS values are never sent. If the optional "Practise next"
+service is configured, a per-skill mastery profile derived from the student's quiz attempts is sent to
+it. All of this is declared via the Moodle Privacy API (`classes/privacy/`), including full export and
+deletion support. Choose providers/services whose data-handling terms suit your institution.
 
 ## Security
 
